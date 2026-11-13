@@ -70,8 +70,6 @@ Eight numbers describe a field's climate well enough to match it against anywher
 - ❌ No weather forecast
 - ❌ No machine learning black boxes
 
-Every number on screen traces back to arithmetic on NASA data. We can explain any result to a judge in 10 seconds.
-
 ---
 
 ## NASA Data
