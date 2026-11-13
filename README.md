@@ -8,9 +8,13 @@
 
 ## What Is Climate Twin?
 
+Every farmer adapting to a changing climate is asked to guess at a future nobody can predict. We think there’s a better question.
+
 Climate Twin answers one question a farmer actually asks:
 
 > **What is happening to my land, and who already farms land like it?**
+
+Somewhere on Earth, there is already a place with the climate your field will have in 2045 — and people farm it today. Climate Twin finds that place using 40 years of NASA Earth observation data, shows you what grows there, and maps a path from the crop that’s failing to the one that won’t.
 
 We don't predict the future. We find the place on Earth whose climate **today** matches what your field will have in **2045** — and show what is already grown there.
 
