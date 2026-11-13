@@ -70,18 +70,22 @@ This means the global grid build only ever downloads each point once, even if th
 
 ```python
 import itertools
+from global_land_mask import globe
 
-lats = range(-60, 75, 5)   # -60 to 70 in steps of 5
-lons = range(-180, 180, 5) # -180 to 175 in steps of 5
+GRID_STEP_DEG = 5
+lats = range(-60, 75, GRID_STEP_DEG)   # -60 to 70 → 27 values
+lons = range(-180, 180, GRID_STEP_DEG) # -180 to 175 → 72 values
 
-# Filter to land points only — use a simple land mask or
-# accept that some ocean points will be in the grid and
-# filter them out when their crop list is empty
-grid_points = list(itertools.product(lats, lons))
-# ~504 points at 5° resolution
+all_points = list(itertools.product(lats, lons))  # 27 × 72 = 1,944 points
+grid_points = [(lat, lon) for lat, lon in all_points if globe.is_land(lat, lon)]
+print(f"{len(grid_points)} land points of {len(all_points)}")  # expect roughly 500–600
 ```
 
-For the hackathon, ocean points returning empty crops can simply be excluded from matching.
+Filter to land **before** fetching. Fetching all 1,944 points and dropping ocean afterwards takes about 4× longer.
+
+`global-land-mask` works offline (it ships a 1 km GLOBE-derived mask), so it adds no API calls. Source: [global-land-mask on PyPI](https://pypi.org/project/global-land-mask/).
+
+If the build is still too slow, set `GRID_STEP_DEG = 10`: 14 × 36 = 504 points before masking, roughly 130–150 land points after.
 
 ## Time Windows
 
@@ -111,18 +115,32 @@ def extrapolate_to_2045(years: list[int], values: list[float]) -> float:
 
 ## Weighted Euclidean Distance
 
+Two steps. Standardise first, so different units (°C vs mm vs MJ/m²) don't dominate. Rainfall in raw mm would otherwise outweigh every other value.
+
 ```python
 import numpy as np
 
-def match_score(field_sig: dict, grid_sig: dict, weights: dict) -> float:
-    """Lower score = better match."""
+def grid_stats(grid_sigs: list[dict], keys: list[str]) -> dict:
+    """Mean and std of each signature value across the whole grid."""
+    return {
+        k: (float(np.mean([g[k] for g in grid_sigs])), float(np.std([g[k] for g in grid_sigs])))
+        for k in keys
+    }
+
+def twin_distance(field_sig: dict, grid_sig: dict, weights: dict, stats: dict) -> float:
+    """Weighted Euclidean distance on z-scored values. Lower = better match."""
     keys = list(weights.keys())
-    diff = np.array([field_sig[k] - grid_sig[k] for k in keys])
+    z = lambda sig, k: (sig[k] - stats[k][0]) / stats[k][1]
+    diff = np.array([z(field_sig, k) - z(grid_sig, k) for k in keys])
     w = np.array([weights[k] for k in keys])
     return float(np.sqrt(np.sum(w * diff**2)))
+
+def match_score(distance: float) -> float:
+    """Convert distance to the contract's 0–1 score. Higher = better match."""
+    return 1 / (1 + distance)
 ```
 
-Standardise (z-score) all values across the grid before computing distances, so the different units (°C vs mm vs MJ/m²) don't dominate.
+The API returns `match_score(twin_distance(...))` in the contract's `twin.match_score` field. Compute `grid_stats` once over the present-day grid and reuse it for the 2045 lookup and the 1995 backtest, so all three are measured on the same scale.
 
 ## Crop Knowledge Base Format
 

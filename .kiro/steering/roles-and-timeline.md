@@ -2,7 +2,7 @@
 
 ## Role Ownership
 
-### Role 1 — Data & Climate Engine (Python)
+### Role 1 — Data & Climate Engine (Python) · Loke Yi Cheng
 The critical path. Nothing else works until the twin lookup returns a number.
 
 **Deliverables:**
@@ -22,7 +22,7 @@ The critical path. Nothing else works until the twin lookup returns a number.
 
 ---
 
-### Role 2 — Front-End & The Reveal (HTML/JS)
+### Role 2 — Front-End & The Reveal (HTML/JS) · Lee Chui Jia (Team Leader)
 Builds against `contract.json` from hour one. Never blocked by Role 1.
 
 **Deliverables (in priority order — stop wherever the clock stops):**
@@ -42,7 +42,7 @@ Plus:
 
 ---
 
-### Role 3 — Agronomy, Content & Validity
+### Role 3 — Agronomy, Content & Validity · Koh Zhe Xuan
 No coding required. This role owns the **Validity** judging criterion.
 
 **Deliverables:**
@@ -62,7 +62,7 @@ No coding required. This role owns the **Validity** judging criterion.
 
 ---
 
-### Role 4 — Story, Submission & Integration
+### Role 4 — Story, Submission & Integration · Ong Yan Xing
 The most underrated role. Presentation is a full judging criterion.
 
 **Deliverables:**

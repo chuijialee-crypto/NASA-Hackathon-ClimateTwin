@@ -10,10 +10,10 @@ Challenge: **Field Shift — Adapting Farms with NASA Data**
 
 ## Team
 4 members. Roles:
-- **Role 1** — Python data/climate engine (critical path)
-- **Role 2** — Front-end (map, arc, charts)
-- **Role 3** — Agronomy content and validity (crop knowledge base, sanity checks)
-- **Role 4** — Story, submission, demo video, integration testing
+- **Role 1 — Loke Yi Cheng**: Python data/climate engine (critical path)
+- **Role 2 — Lee Chui Jia (Team Leader)**: Front-end (map, arc, charts)
+- **Role 3 — Koh Zhe Xuan**: Agronomy content and validity (crop knowledge base, sanity checks)
+- **Role 4 — Ong Yan Xing**: Story, submission, demo video, integration testing
 
 ## The Core Idea
 A web app that answers one question a farmer actually asks:

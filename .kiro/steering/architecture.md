@@ -111,13 +111,17 @@ Build in this order. Stop wherever the clock stops you. Only screen 1 is require
 
 ## Global Reference Grid
 
-- Sample land points at **5° resolution** (~500 points)
-- Pull 2015–2025 daily POWER data for each
+- Sample land points at **5° resolution**: 1,944 grid points, filtered with `global-land-mask` to roughly 500–600 land points before fetching
+- Pull 2015–2024 daily POWER data for each (`start=20150101`, `end=20241231`)
 - Compute the 8 signature values
 - Save to `global_grid.json`
 - Build this first — it takes 20–30 minutes with 5 concurrent requests
 - Cache every POWER response to disk; never fetch the same point twice
-- If the API is slow: drop to **10° grid** (~130 points). Match quality barely suffers.
+- If the API is slow: drop to **10° grid** (~130–150 land points). Match quality barely suffers.
+
+## Match Score
+
+`twin.match_score` in the contract is **higher = better**, between 0 and 1. The engine computes a weighted Euclidean distance on z-scored values (lower = better) and converts it with `match_score = 1 / (1 + distance)`. See `nasa-data-reference.md` for the code.
 
 ## API
 

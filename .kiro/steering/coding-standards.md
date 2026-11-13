@@ -42,6 +42,7 @@ pandas==2.2.3
 numpy==2.1.3
 scipy==1.14.1
 httpx==0.27.2
+global-land-mask==1.0.0
 ```
 
 ## JavaScript / HTML (Role 2 — front-end)
@@ -56,8 +57,9 @@ httpx==0.27.2
       const res = await fetch(`/twin?lat=${lat}&lon=${lon}`);
       if (!res.ok) throw new Error(res.status);
       return await res.json();
-    } catch {
-      // silent fallback — nobody in the room knows
+    } catch (err) {
+      // silent to the audience, visible to us in the console
+      console.warn('API failed, using demo_field.json', err);
       return await fetch('./demo_field.json').then(r => r.json());
     }
   }
