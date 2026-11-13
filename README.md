@@ -63,15 +63,6 @@ Eight numbers describe a field's climate well enough to match it against anywher
 
 ---
 
-## What We Are NOT Doing
-
-- ❌ No yield prediction
-- ❌ No profit forecast
-- ❌ No weather forecast
-- ❌ No machine learning black boxes
-
----
-
 ## NASA Data
 
 | Source | What We Use It For |
