@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "file-edit-reminder",
+      "description": "After an edit, remind the agent to check docs, types, edge cases and tests.",
+      "trigger": "PostToolUse",
+      "matcher": "^str_replace$",
+      "action": {
+        "type": "agent",
+        "prompt": "File edited. Remember to:\n- Update related documentation if APIs changed\n- Check type safety and interfaces\n- Consider edge cases and error handling\n- Verify tests cover the changes\n\nRun appropriate tests for the modified file."
+      }
+    }
+  ]
+}

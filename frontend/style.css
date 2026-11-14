@@ -1813,6 +1813,26 @@ body.story-active {
   color: #13315c;
 }
 
+/* ---------- A screen whose data is missing from this result ---------- */
+
+.screen-error {
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(6, 10, 35, 0.8);
+  color: #ffe2b8;
+  font-size: 1.05rem;
+}
+
+.optional:not(.has-error) .screen-error {
+  display: none;
+}
+
+/* Hide the content too: it may still show the previous field. */
+.optional.has-error > :not(.scene):not(h2):not(.screen-error) {
+  display: none !important;
+}
+
 /* ---------- Footer: data credit and AI disclosure ---------- */
 
 .site-footer {
@@ -1881,6 +1901,16 @@ body.story-active {
     border-radius: 8px;
   }
 
+  #print-snapshot:not([src]) {
+    display: none;
+  }
+
+  .screen-error {
+    background: none !important;
+    color: #111 !important;
+    padding: 0 !important;
+  }
+
   main {
     max-width: none;
     margin: 0;
@@ -1946,7 +1976,6 @@ body.story-active {
   }
 
   #drift-map {
-    height: 320px;
     border: 1px solid #999 !important;
   }
 

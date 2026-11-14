@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "file-write-reminder",
+      "description": "After a file is written, remind the agent about tests, docs, imports and conventions.",
+      "trigger": "PostToolUse",
+      "matcher": "^(fs_write|fs_append)$",
+      "action": {
+        "type": "agent",
+        "prompt": "New file created. Remember to:\n- Add appropriate tests for new functionality\n- Update documentation and README if needed\n- Ensure imports and dependencies are correct\n- Follow project naming and structure conventions\n\nRun tests to verify integration with existing code."
+      }
+    }
+  ]
+}
