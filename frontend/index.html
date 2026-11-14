@@ -8,8 +8,22 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>🌍 Climate Twin</h1>
+  <header class="hero">
+    <!-- Decorative: a turning globe with crops circling it -->
+    <div class="hero-globe" aria-hidden="true">
+      <div class="globe">
+        <span class="globe-frame">🌏</span>
+        <span class="globe-frame">🌍</span>
+        <span class="globe-frame">🌎</span>
+      </div>
+      <div class="orbit">
+        <span class="crop" style="--a: 0deg"><span>🌾</span></span>
+        <span class="crop" style="--a: 90deg"><span>🌽</span></span>
+        <span class="crop" style="--a: 180deg"><span>🥥</span></span>
+        <span class="crop" style="--a: 270deg"><span>🍌</span></span>
+      </div>
+    </div>
+    <h1 class="hero-title">Climate Twin</h1>
     <p class="tagline">Where is your farm going?</p>
   </header>
 
