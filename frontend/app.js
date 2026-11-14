@@ -120,6 +120,11 @@ const state = {
   chart: null,
   radar: null,
   view: 'map',        // 'globe' or 'map'
+  loading: false,     // a lookup is in progress
+  pending: null,      // { lat, lon } being looked up
+  dataId: 0,          // requestId that produced state.data
+  resultShown: false, // the reveal for state.data finished drawing
+  arcResolve: null,   // lets a cancelled arc animation finish its promise
   revealToken: 0,     // drops reveal animations that a newer reveal replaced
   globe: null,
   globeIntroDone: false,
@@ -142,10 +147,12 @@ function fill(template, values) {
 }
 
 // The copy is typed in plain ASCII ("35C", "MJ/m2"); show proper symbols.
+// Only temperatures with two digits ("10C", "~35C") are converted, so text
+// like "Phase 2C" is left alone; "(C)" only when it isn't a copyright line.
 function prettyUnits(text) {
   return String(text)
-    .replace(/\(C\)/g, '(°C)')
-    .replace(/(\d)C\b/g, '$1°C')
+    .replace(/\(C\)(?!\s*\d)/g, '(°C)')
+    .replace(/(^|[^\w.])(\d{2})C\b/g, '$1$2°C')
     .replace(/MJ\/m2\b/g, 'MJ/m²');
 }
 
@@ -191,9 +198,14 @@ function fmt(value, digits) {
   return typeof value === 'number' ? value.toFixed(digits) : '—';
 }
 
+// Distances come from the engine: round them and never put raw values in HTML.
+function km(value) {
+  return isNum(value) ? Math.round(value).toLocaleString('en-US') : '?';
+}
+
 function distanceLabel(twin) {
   const help = copy('tooltips.distance_km');
-  return `<b>${twin.distance_km ?? '?'} km</b> to your climate twin${help ? `<br>${escapeHtml(help)}` : ''}`;
+  return `<b>${km(twin.distance_km)} km</b> to your climate twin${help ? `<br>${escapeHtml(help)}` : ''}`;
 }
 
 function pct(score) {
@@ -221,13 +233,19 @@ function addMarker(layer, latlng, kind, { tooltip, popup, pop } = {}) {
   return marker;
 }
 
+// The longitude for `lon` that is within 180° of `fromLon` (may be outside
+// −180…180), so a line from fromLon takes the short way across the date line.
+function nearLon(fromLon, lon) {
+  if (lon - fromLon > 180) return lon - 360;
+  if (fromLon - lon > 180) return lon + 360;
+  return lon;
+}
+
 // Points along a gentle curve between two locations (quadratic Bézier).
 function arcPoints(from, to, segments = 80) {
   let [lat1, lon1] = from;
-  let [lat2, lon2] = to;
-  // Take the short way round across the date line.
-  if (lon2 - lon1 > 180) lon2 -= 360;
-  if (lon1 - lon2 > 180) lon2 += 360;
+  const lat2 = to[0];
+  const lon2 = nearLon(lon1, to[1]); // short way round across the date line
 
   const midLat = (lat1 + lat2) / 2;
   const midLon = (lon1 + lon2) / 2;
@@ -254,11 +272,18 @@ function cancelArcAnimation() {
     cancelAnimationFrame(state.arcFrame);
     state.arcFrame = null;
   }
+  // Let whoever was waiting carry on (their token check then stops them).
+  if (state.arcResolve) {
+    state.arcResolve();
+    state.arcResolve = null;
+  }
 }
 
 // Draws the line progressively. Resolves when finished.
 function animateArc(line, points) {
-  return new Promise(resolve => {
+  return new Promise(done => {
+    const resolve = () => { state.arcResolve = null; done(); };
+    state.arcResolve = resolve;
     if (prefersReducedMotion) {
       line.setLatLngs(points);
       resolve();
@@ -295,16 +320,49 @@ function loadFallback() {
   return fallbackPromise;
 }
 
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+const isPoint = p => !!p && isNum(p.lat) && isNum(p.lon);
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// Checks the parts the reveal can't do without, and tidies the optional
+// parts so a missing or wrong-typed one can't break the page.
+// Returns the cleaned data, or null if the core is unusable.
+function normaliseTwin(raw) {
+  if (!isObj(raw) || !isPoint(raw.field) || !isPoint(raw.twin)) return null;
+  const twin = { ...raw.twin, place: String(raw.twin.place ?? '').trim() || 'an unnamed place' };
+  if (!isObj(twin.signature)) twin.signature = {};
+  return {
+    ...raw,
+    field: { ...raw.field, name: String(raw.field.name ?? '').trim() || 'Your field' },
+    twin,
+    signature_now: isObj(raw.signature_now) ? raw.signature_now : {},
+    signature_2045: isObj(raw.signature_2045) ? raw.signature_2045 : {},
+    twin_1995: isObj(raw.twin_1995) ? raw.twin_1995 : null,
+    twin_now: isPoint(raw.twin_now) ? raw.twin_now : null,
+    crops_there: Array.isArray(raw.crops_there) ? raw.crops_there.filter(isObj) : [],
+    current_crop_viability: Array.isArray(raw.current_crop_viability)
+      ? raw.current_crop_viability.filter(v => isObj(v) && isNum(v.score)) : [],
+    caveats: Array.isArray(raw.caveats) ? raw.caveats.map(String) : []
+  };
+}
+
 async function getTwin(lat, lon) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let invalid = false;
   try {
     const res = await fetch(`${API_URL}?lat=${lat}&lon=${lon}`, { signal: controller.signal });
     if (!res.ok) throw new Error(res.status);
-    return { data: await res.json(), live: true };
+    // From here on the engine did answer, so any problem means a bad answer.
+    invalid = true;
+    const data = normaliseTwin(await res.json());
+    if (data) return { data, live: true };
+    throw new Error('engine answer is missing the field or twin location');
   } catch (err) {
     console.warn('API failed, using contract.json fallback', err);
-    return { data: await loadFallback(), live: false };
+    const data = normaliseTwin(await loadFallback());
+    if (!data) throw new Error('contract.json is missing the field or twin location');
+    return { data, live: false, invalid };
   } finally {
     clearTimeout(timer);
   }
@@ -336,6 +394,8 @@ function setStatus(message, tone = 'info') {
 async function selectField(lat, lon, { fromClick = false } = {}) {
   const id = ++state.requestId;
   cancelArcAnimation();
+  state.loading = true;
+  state.pending = { lat, lon };
   setLoading(true);
   setExportReady(false);
   syncFieldInputs(lat, lon);
@@ -351,6 +411,8 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   } catch (err) {
     if (id !== state.requestId) return;
     console.error(err);
+    state.loading = false;
+    state.resultShown = false; // the old result is no longer on screen
     setLoading(false);
     document.getElementById('result-text').innerHTML =
       '<p class="reveal-detail">Could not load any data. Open this page through a local server ' +
@@ -360,11 +422,16 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   }
   if (id !== state.requestId) return; // a newer click replaced this one
 
+  state.loading = false;
   setLoading(false);
   state.data = result.data;
+  state.dataId = id;
+  state.resultShown = false;
   state.live = result.live;
 
-  if (result.live) {
+  if (result.invalid) {
+    setStatus('The engine sent an incomplete answer, so this shows the Kedah demo result instead.', 'error');
+  } else if (result.live) {
     setStatus('Live result from the Climate Twin engine. Click the map to try another field.');
   } else if (fromClick) {
     setStatus(
@@ -377,9 +444,22 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
 
   // Role 3 owns the caveat wording; the API's list is the fallback.
   const role3Caveats = Array.isArray(COPY.caveats?.items) ? COPY.caveats.items.map(prettyUnits) : [];
-  renderCaveats(role3Caveats.length ? role3Caveats : (state.data.caveats || []));
+  renderCaveats(role3Caveats.length ? role3Caveats : state.data.caveats);
   refreshOpenScreens();
   await renderReveal(state.data, id);
+}
+
+// Re-draws the current result (view switch, story mode) only when it is
+// still the one on screen. While loading, it re-shows the pending pin instead.
+function replayReveal() {
+  if (state.loading) {
+    if (state.pending) showPendingField(state.pending.lat, state.pending.lon);
+    return;
+  }
+  // dataId !== requestId means the latest lookup failed: keep its error showing.
+  if (state.data && state.dataId === state.requestId) {
+    renderReveal(state.data, state.dataId);
+  }
 }
 
 // ---------- Typed coordinates and Malaysian presets ----------
@@ -393,9 +473,10 @@ function parseCoord(text, positive, negative) {
     if (![positive, negative].includes(suffix[1])) return null;
     if (suffix[1] === negative) sign = -1;
     t = t.slice(0, suffix.index).trim();
-    if (t.startsWith('-')) return null; // "-6 S" is ambiguous
+    if (/^[+-]/.test(t)) return null; // "-6 S" is ambiguous
   }
-  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  // Allows "+6.12", ".5" and "6." as well as "6.12".
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
   return sign * Number(t);
 }
 
@@ -474,9 +555,9 @@ function showPendingField(lat, lon) {
   state.revealToken++;
   cancelArcAnimation();
   const label = `Selected point<br>${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-  if (state.view === 'globe') {
+  if (state.view === 'globe' && state.globe) {
     globePendingField(lat, lon, label);
-  } else {
+  } else if (state.revealLayer) {
     state.revealLayer.clearLayers();
     addMarker(state.revealLayer, [lat, lon], 'field', { tooltip: label });
   }
@@ -486,9 +567,19 @@ async function renderReveal(data, id) {
   const token = ++state.revealToken;
   const resultText = document.getElementById('result-text');
   resultText.classList.remove('is-visible');
+  setExportReady(false);
 
-  if (state.view === 'globe') await globeReveal(data, token);
-  else await mapReveal(data, token);
+  try {
+    if (state.view === 'globe') await globeReveal(data, token);
+    else await mapReveal(data, token);
+  } catch (err) {
+    console.error('Reveal failed to draw', err);
+    if (id !== state.requestId || token !== state.revealToken) return;
+    resultText.innerHTML = '<p class="reveal-detail">Something went wrong drawing this result.</p>';
+    resultText.classList.add('is-visible');
+    setStatus('This result could not be drawn. Try another field.', 'error');
+    return;
+  }
 
   // A newer click or replay took over mid-animation.
   if (id !== state.requestId || token !== state.revealToken) return;
@@ -504,11 +595,14 @@ async function renderReveal(data, id) {
     <p class="reveal-detail"><span class="reveal-hint" ${matchHelp ? `title="${escapeHtml(matchHelp)}" tabindex="0"` : ''}>Climate match: ${pct(twin.match_score)}%${matchHelp ? ' ⓘ' : ''}</span></p>
   `;
   resultText.classList.add('is-visible');
+  state.resultShown = true;
   setExportReady(true);
 }
 
 async function mapReveal(data, token) {
-  const { field, twin } = data;
+  const { field } = data;
+  // Same longitude the arc uses, so the pin sits at the arc's end.
+  const twin = { ...data.twin, lon: nearLon(data.field.lon, data.twin.lon) };
   const map = state.revealMap;
   const layer = state.revealLayer;
 
@@ -567,14 +661,20 @@ function webglAvailable() {
 
 function wait(ms) {
   return new Promise(resolve => {
-    const t = setTimeout(resolve, ms);
-    state.globeTimers.push(t);
+    const entry = { resolve };
+    entry.timer = setTimeout(() => {
+      state.globeTimers = state.globeTimers.filter(e => e !== entry);
+      resolve();
+    }, ms);
+    state.globeTimers.push(entry);
   });
 }
 
+// Stops pending waits early; the waiting reveal then sees its token is stale.
 function clearGlobeTimers() {
-  state.globeTimers.forEach(clearTimeout);
+  const pending = state.globeTimers;
   state.globeTimers = [];
+  pending.forEach(e => { clearTimeout(e.timer); e.resolve(); });
 }
 
 // Resolves with the first image URL that loads, or null if none do.
@@ -747,13 +847,14 @@ async function globeReveal(data, token) {
   // below the headline box. Farther apart = higher camera.
   const mid = greatCircle({ lat: field.lat, lon: field.lon }, { lat: twin.lat, lon: twin.lon });
   const altitude = Math.min(2.6, Math.max(0.75, 0.55 + mid.degrees / 40));
-  const view = { lat: mid.lat + 4 + mid.degrees * 0.15, lng: mid.lon, altitude };
+  // Clamp so the camera never tips over a pole.
+  const view = { lat: Math.max(-85, Math.min(85, mid.lat + 4 + mid.degrees * 0.15)), lng: mid.lon, altitude };
 
   if (prefersReducedMotion) {
     globe.pointOfView(view, 0);
   } else if (!state.globeIntroDone) {
     // First time: start far out, a third of the way round, and swoop in.
-    globe.pointOfView({ lat: view.lat - 10, lng: view.lng - 120, altitude: 3.2 }, 0);
+    globe.pointOfView({ lat: Math.max(-85, view.lat - 10), lng: view.lng - 120, altitude: 3.2 }, 0);
     globe.pointOfView(view, 2400);
     await wait(2400);
   } else {
@@ -824,7 +925,7 @@ function setView(view, { replay = true } = {}) {
     state.globe.resumeAnimation();
   }
 
-  if (replay && state.data) renderReveal(state.data, state.requestId);
+  if (replay) replayReveal();
 }
 
 function initViews() {
@@ -1022,7 +1123,8 @@ function renderCrops(data) {
 // ---------- Screen 3: The Drift ----------
 
 function renderDrift(data) {
-  const { field, twin, twin_1995 } = data;
+  const { field, twin_1995: past, twin_now: now } = data;
+  if (!isPoint(past)) throw new ScreenDataMissing('This result has no 1995 backtest yet.');
 
   if (!state.driftMap) {
     state.driftMap = L.map('drift-map').setView([field.lat, field.lon], 6);
@@ -1033,37 +1135,41 @@ function renderDrift(data) {
   state.driftMap.invalidateSize();
   state.driftLayer.clearLayers();
 
-  addMarker(state.driftLayer, [field.lat, field.lon], 'field', {
-    tooltip: '<b>Your field</b>'
+  const pastLon = nearLon(field.lon, past.lon);
+  const points = [[field.lat, field.lon], [past.lat, pastLon]];
+  addMarker(state.driftLayer, points[0], 'field', {
+    tooltip: `<b>${escapeHtml(copy('reveal.field_label', 'Your field'))}</b>`
   });
-  addMarker(state.driftLayer, [twin_1995.lat, twin_1995.lon], 'past', {
-    tooltip: `<b>${escapeHtml(copy('drift.twin_1995_label', 'Twin in 1995'))}</b><br>${escapeHtml(twin_1995.place)}`
-  });
-  addMarker(state.driftLayer, [twin.lat, twin.lon], 'twin', {
-    tooltip: `<b>${escapeHtml(copy('drift.twin_now_label', 'Twin today'))}</b><br>${escapeHtml(twin.place)}`
+  addMarker(state.driftLayer, points[1], 'past', {
+    tooltip: `<b>${escapeHtml(copy('drift.twin_1995_label', 'Twin in 1995'))}</b><br>${escapeHtml(past.place ?? '')}`
   });
 
-  L.polyline([
-    [twin_1995.lat, twin_1995.lon],
-    [twin.lat, twin.lon]
-  ], { color: '#ffa502', weight: 3 })
-    .bindTooltip(`${twin_1995.drift_km} km of climate drift`, { sticky: true, className: 'ct-tooltip' })
-    .addTo(state.driftLayer);
+  // Today's twin is the match for the field's climate *now*. The main twin is
+  // the match for 2045, so it isn't drawn here. Only draw the drift line when
+  // the engine sends twin_now.
+  if (now) {
+    const nowPoint = [now.lat, nearLon(field.lon, now.lon)];
+    points.push(nowPoint);
+    addMarker(state.driftLayer, nowPoint, 'twin', {
+      tooltip: `<b>${escapeHtml(copy('drift.twin_now_label', 'Twin today'))}</b><br>${escapeHtml(now.place ?? '')}`
+    });
+    L.polyline([points[1], nowPoint], { color: '#ffa502', weight: 3 })
+      .bindTooltip(`<b>${km(past.drift_km)} km</b> of climate drift`, { sticky: true, className: 'ct-tooltip' })
+      .addTo(state.driftLayer);
+  }
 
-  state.driftMap.fitBounds([
-    [field.lat, field.lon],
-    [twin_1995.lat, twin_1995.lon],
-    [twin.lat, twin.lon]
-  ], { padding: [40, 40] });
+  state.driftMap.fitBounds(points, { padding: [40, 40], maxZoom: 7 });
 
-  document.getElementById('drift-text').textContent =
-    fill(copy('drift.template', "In climate terms, your field's twin has drifted {drift_km} km since 1995."), { drift_km: twin_1995.drift_km });
+  document.getElementById('drift-text').textContent = isNum(past.drift_km)
+    ? fill(copy('drift.template', "In climate terms, your field's twin has drifted {drift_km} km since 1995."), { drift_km: km(past.drift_km) })
+    : 'The distance the twin has drifted since 1995 is not in this result.';
 }
 
 // ---------- Screen 4: Viability Curve ----------
 
 function renderViability(data) {
-  const viability = data.current_crop_viability || [];
+  const viability = data.current_crop_viability;
+  if (!viability.length) throw new ScreenDataMissing('This result has no viability scores yet.');
   const labels = viability.map(v => v.year);
   const scores = viability.map(v => v.score);
 
@@ -1127,13 +1233,30 @@ const SCREEN_RENDERERS = {
   viability: renderViability
 };
 
+// Thrown by a screen when this result simply doesn't include its data.
+class ScreenDataMissing extends Error {}
+
 function renderScreen(id) {
   if (!state.data) return;
+  const section = document.getElementById(id);
+  let message = section.querySelector('.screen-error');
   try {
     SCREEN_RENDERERS[id](state.data);
+    section.classList.remove('has-error');
   } catch (err) {
-    // Optional screens must never break the reveal.
-    console.error(`${id} failed to render`, err);
+    // Optional screens must never break the reveal. Hide this screen's
+    // content (it may still show the previous field) and say why.
+    if (!(err instanceof ScreenDataMissing)) console.error(`${id} failed to render`, err);
+    if (!message) {
+      message = document.createElement('p');
+      message.className = 'screen-error';
+      message.setAttribute('role', 'status');
+      section.querySelector('h2').after(message);
+    }
+    message.textContent = err instanceof ScreenDataMissing
+      ? err.message
+      : 'This part of the result could not be shown.';
+    section.classList.add('has-error');
   }
 }
 
@@ -1194,7 +1317,7 @@ function goToStep(step) {
   if (current.id === 'reveal') {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
     // Replay the arc so the presenter can start the story fresh.
-    if (state.data) renderReveal(state.data, state.requestId);
+    replayReveal();
   }
 
   document.getElementById('story-label').textContent =
@@ -1240,7 +1363,9 @@ function initStory() {
 
   // Arrow keys, Page Up/Down (what presentation clickers send) and Escape.
   document.addEventListener('keydown', e => {
-    if (!story.active || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!story.active || e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+    // Leave typing alone: keys in the coordinate boxes or the preset list.
+    if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')) return;
     // Space/Enter on a focused button already triggers its click.
     const onButton = e.target instanceof HTMLButtonElement;
     // Arrow keys pan a focused map, so leave them to Leaflet there.
@@ -1264,10 +1389,41 @@ const SNAPSHOT_W = 1200;
 const SNAPSHOT_H = 630;   // standard social-media preview size
 const SNAPSHOT_FONT = "'Avenir Next', Avenir, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
+// Export buttons work only when a finished result is on screen and no
+// export is already running.
+const exportState = { ready: false, busy: false };
+
 function setExportReady(ready) {
+  exportState.ready = ready;
+  updateExportButtons();
+}
+
+function updateExportButtons() {
   for (const id of ['download-image', 'print-report']) {
-    document.getElementById(id).disabled = !ready;
+    document.getElementById(id).disabled = !exportState.ready || exportState.busy;
   }
+}
+
+// The result an export should use, or null if none is ready.
+function exportableResult() {
+  return exportState.ready && !state.loading && state.data && state.dataId === state.requestId
+    ? { data: state.data, id: state.dataId }
+    : null;
+}
+
+// ctx.roundRect is missing in Safari < 16 and Firefox < 112.
+function roundedRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 // Wraps text into lines that fit maxWidth. Returns the y after the last line.
@@ -1344,7 +1500,11 @@ function captureView(data, corsTiles) {
       ctx.clearRect(0, 0, w, h);
       tilesIncluded = false;
     }
-    for (const [p, color] of [[field, '#2ed573'], [twin, '#ff6b6b']]) {
+    const markers = state.globe.htmlElementsData();
+    for (const [p, color, kind] of [[field, '#2ed573', 'field'], [twin, '#ff6b6b', 'twin']]) {
+      // globe.gl fades out markers on the far side of the Earth; skip those.
+      const m = markers.find(d => d.el.classList.contains(`ct-marker--${kind}`));
+      if (m && m.el.style.opacity === '0') continue;
       const c = state.globe.getScreenCoords(p.lat, p.lon, 0.01);
       if (c) { drawPin(ctx, c.x, c.y, color); pins.push(c); }
     }
@@ -1410,8 +1570,7 @@ function composeSnapshot(data, corsTiles = null) {
   const sx = Math.min(view.width - sw, Math.max(0, focus.x - sw / 2));
   const sy = Math.min(view.height - sh, Math.max(0, focus.y - sh / 2));
   ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(px, py, pw, ph, 18);
+  roundedRectPath(ctx, px, py, pw, ph, 18);
   ctx.clip();
   ctx.fillStyle = '#02030c';
   ctx.fillRect(px, py, pw, ph);
@@ -1419,8 +1578,7 @@ function composeSnapshot(data, corsTiles = null) {
   ctx.restore();
   ctx.strokeStyle = 'rgba(127, 220, 255, 0.5)';
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(px, py, pw, ph, 18);
+  roundedRectPath(ctx, px, py, pw, ph, 18);
   ctx.stroke();
 
   // Text panel
@@ -1448,10 +1606,10 @@ function composeSnapshot(data, corsTiles = null) {
   ctx.font = `400 19px ${SNAPSHOT_FONT}`;
   const lines = [
     `Field: ${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}`,
-    `Twin: ${twin.lat.toFixed(2)}, ${twin.lon.toFixed(2)} · ${twin.distance_km ?? '?'} km away`
+    `Twin: ${twin.lat.toFixed(2)}, ${twin.lon.toFixed(2)} · ${km(twin.distance_km)} km away`
   ];
-  if (past && typeof past.drift_km === 'number') {
-    lines.push(`Twin has drifted ${past.drift_km} km since 1995`);
+  if (past && isNum(past.drift_km)) {
+    lines.push(`Twin has drifted ${km(past.drift_km)} km since 1995`);
   }
   const crops = (data.crops_there || []).map(c => c.name).filter(Boolean);
   if (crops.length) lines.push(`Suited to its climate: ${crops.slice(0, 4).join(', ')}`);
@@ -1472,50 +1630,91 @@ function snapshotFilename(data) {
   return `climate-twin-${place}-${new Date().toISOString().slice(0, 10)}.png`;
 }
 
-async function snapshotNow() {
+async function snapshotFor(result) {
   const tiles = state.view === 'map' ? await loadCorsTiles() : null;
-  return composeSnapshot(state.data, tiles);
+  return composeSnapshot(result.data, tiles);
 }
 
-async function downloadImage() {
-  if (!state.data) return;
-  const button = document.getElementById('download-image');
-  button.disabled = true;
-  const canvas = await snapshotNow();
-  button.disabled = !state.data;
-  canvas.toBlob(blob => {
-    if (!blob) return;
+// Runs an export once at a time, with the buttons greyed out meanwhile.
+// Returns false if the result changed while it ran (a new field was chosen).
+async function runExport(task) {
+  const result = exportableResult();
+  if (!result || exportState.busy) return;
+  exportState.busy = true;
+  updateExportButtons();
+  try {
+    await task(result, () => result.id === state.requestId && !state.loading);
+  } catch (err) {
+    console.error('Export failed', err);
+    setStatus('Sorry, that export failed. Try again.', 'error');
+  } finally {
+    exportState.busy = false;
+    updateExportButtons();
+  }
+}
+
+function downloadImage() {
+  return runExport(async (result, stillCurrent) => {
+    const canvas = await snapshotFor(result);
+    if (!stillCurrent()) return;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('could not encode the image');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = snapshotFilename(state.data);
+    a.download = snapshotFilename(result.data);
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, 'image/png');
+  });
 }
 
 // Before printing: put the snapshot at the top and open every screen so the
 // report has everything. Afterwards, put the screens back as they were.
 const printState = { prepared: false, wasOpen: [] };
 
-// snapshot is passed in by the Print button; Ctrl/Cmd+P can't wait, so it
-// builds one straight away (flat map drawn without its background).
-function prepareForPrint(snapshot) {
-  if (printState.prepared || !state.data) return;
-  printState.prepared = true;
-  const { field, twin } = state.data;
-  const canvas = snapshot instanceof HTMLCanvasElement ? snapshot : composeSnapshot(state.data);
-  document.getElementById('print-snapshot').src = canvas.toDataURL('image/png');
-  document.getElementById('print-meta').textContent =
-    `${field.name} (${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}). Climate twin: ${twin.place}. ` +
+function printMeta(result) {
+  const { field, twin } = result.data;
+  return `${field.name} (${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}). Climate twin: ${twin.place}. ` +
     (state.live
       ? 'Live result from the Climate Twin engine. '
       : 'Demo data: the engine was not connected, so this is the example result. ') +
     `Printed ${new Date().toLocaleString()}.`;
+}
 
-  printState.wasOpen = [...document.querySelectorAll('.optional')].filter(s => !s.hidden).map(s => s.id);
+// The Print button passes a ready snapshot. Ctrl/Cmd+P can't wait, so then it
+// builds one straight away (flat map drawn without its background).
+function prepareForPrint(snapshot) {
+  if (printState.prepared) return;
+  const img = document.getElementById('print-snapshot');
+  const meta = document.getElementById('print-meta');
+  const result = exportableResult();
+  if (!result) {
+    // Nothing finished to print (still loading, or no result yet).
+    img.removeAttribute('src');
+    meta.textContent = state.loading
+      ? 'A new result was still loading. Print again once it has appeared.'
+      : 'There is no result to print yet.';
+    return;
+  }
+
+  // Remember what was open *before* changing anything. A screen that is
+  // fading out counts as closed.
+  const wasOpen = [...document.querySelectorAll('.optional')]
+    .filter(s => !s.hidden && s.classList.contains('is-visible')).map(s => s.id);
+  try {
+    const canvas = snapshot instanceof HTMLCanvasElement ? snapshot : composeSnapshot(result.data);
+    img.src = canvas.toDataURL('image/png');
+    meta.textContent = printMeta(result);
+  } catch (err) {
+    console.error('Print snapshot failed', err);
+    img.removeAttribute('src');
+    meta.textContent = printMeta(result);
+  }
+
+  printState.wasOpen = wasOpen;
+  printState.prepared = true;
   document.body.classList.add('printing');
   document.querySelectorAll('.optional').forEach(section => {
     section.hidden = false;
@@ -1533,26 +1732,34 @@ function restoreAfterPrint() {
   document.body.classList.remove('printing');
   if (state.radar) state.radar.resize(); // back to fitting its box
   document.querySelectorAll('.optional').forEach(section => {
-    if (!printState.wasOpen.includes(section.id)) {
+    const open = printState.wasOpen.includes(section.id);
+    if (!open) {
       section.classList.remove('is-visible');
       section.hidden = true;
     }
+    // Keep the toggle buttons in step with what is showing.
+    const button = document.querySelector(`.toggle[data-target="${section.id}"]`);
+    if (button) button.setAttribute('aria-pressed', String(open));
   });
 }
 
-async function printReport() {
-  if (!state.data) return;
-  prepareForPrint(await snapshotNow());
-  const img = document.getElementById('print-snapshot');
-  try { await img.decode(); } catch { /* print anyway */ }
-  window.print();
+function printReport() {
+  return runExport(async (result, stillCurrent) => {
+    const snapshot = await snapshotFor(result);
+    if (!stillCurrent()) return;
+    prepareForPrint(snapshot);
+    const img = document.getElementById('print-snapshot');
+    try { await img.decode(); } catch { /* print anyway */ }
+    if (!stillCurrent()) { restoreAfterPrint(); return; }
+    window.print();
+  });
 }
 
 function initExport() {
   document.getElementById('download-image').addEventListener('click', downloadImage);
   document.getElementById('print-report').addEventListener('click', printReport);
   // Also handle Ctrl/Cmd+P from the browser menu.
-  window.addEventListener('beforeprint', prepareForPrint);
+  window.addEventListener('beforeprint', () => prepareForPrint());
   window.addEventListener('afterprint', restoreAfterPrint);
 }
 
