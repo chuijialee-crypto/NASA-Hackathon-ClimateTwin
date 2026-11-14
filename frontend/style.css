@@ -308,6 +308,27 @@ main {
   outline-offset: 2px;
 }
 
+.field-demo {
+  font: inherit;
+  font-size: 0.95rem;
+  color: #dfe8ff;
+  background: none;
+  border: none;
+  padding: 0.45rem 0.2rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.field-demo:hover {
+  color: #fff;
+}
+
+.field-demo:focus-visible {
+  outline: 3px solid #7fdcff;
+  outline-offset: 2px;
+}
+
 .field-error {
   flex-basis: 100%;
   min-height: 0;
@@ -467,6 +488,25 @@ main {
 .reveal-detail {
   font-size: 1.1rem;
   opacity: 0.8;
+}
+
+.reveal-subline {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  color: #d9f7e6;
+  margin-bottom: 0.4rem;
+}
+
+/* The headline box lets clicks through to the map; this part takes hover. */
+.reveal-hint {
+  pointer-events: auto;
+  cursor: help;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.5);
+}
+
+.reveal-hint:focus-visible {
+  outline: 2px solid #7fdcff;
+  outline-offset: 2px;
 }
 
 .reveal-loading {
@@ -1773,6 +1813,26 @@ body.story-active {
   color: #13315c;
 }
 
+/* ---------- Footer: data credit and AI disclosure ---------- */
+
+.site-footer {
+  max-width: 1200px;
+  margin: 0 auto 2.5rem;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #c9d6f5;
+}
+
+.site-footer p {
+  display: inline-block;
+  margin: 0 0.6rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(6, 10, 35, 0.7);
+}
+
 /* ---------- Print report ---------- */
 
 .print-header {
@@ -1893,6 +1953,12 @@ body.story-active {
   #drift-text {
     background: none !important;
     padding: 0 !important;
+  }
+
+  .site-footer,
+  .site-footer p {
+    color: #111 !important;
+    background: none !important;
   }
 
   #caveats {

@@ -47,8 +47,8 @@
         <span class="crop" style="--a: 270deg"><span>🍌</span></span>
       </div>
     </div>
-    <h1 class="hero-title">Climate Twin</h1>
-    <p class="tagline">Where is your farm going?</p>
+    <h1 class="hero-title" data-copy="app_name">Climate Twin</h1>
+    <p class="tagline" data-copy="tagline">Find the place that farms your field's future.</p>
   </header>
 
   <!-- Shown only when printing -->
@@ -60,7 +60,7 @@
 
   <main>
     <p id="status" class="status" role="status" aria-live="polite">
-      Click anywhere on the map to choose a field.
+      Pick a field on the map, or choose one below.
     </p>
 
     <!-- Screen 1: The Reveal (always shown) -->
@@ -86,7 +86,8 @@
                    placeholder="100.37" aria-describedby="field-error field-lon-hint">
             <span id="field-lon-hint" class="visually-hidden">−180 to 180. East is positive.</span>
           </label>
-          <button type="submit" class="field-go">Find twin</button>
+          <button type="submit" class="field-go" data-copy="buttons.find_twin">Find the climate twin</button>
+          <button type="button" id="use-demo" class="field-demo" data-copy="buttons.use_demo_field">Use the demo field (Kedah, Malaysia)</button>
           <p id="field-error" class="field-error" role="alert"></p>
         </form>
 
@@ -116,13 +117,13 @@
         ▶ Story mode
       </button>
       <button type="button" class="toggle toggle--crops" data-target="crops" aria-pressed="false" aria-controls="crops">
-        🌾 What grows there
+        🌾 Crops for this climate
       </button>
       <button type="button" class="toggle toggle--compare" data-target="honesty-panel" aria-pressed="false" aria-controls="honesty-panel">
         📊 Compare climates
       </button>
       <button type="button" class="toggle toggle--drift" data-target="drift" aria-pressed="false" aria-controls="drift">
-        🧭 See the drift
+        🧭 <span data-copy="buttons.show_backtest">Show the 1995 backtest</span>
       </button>
       <button type="button" class="toggle toggle--viability" data-target="viability" aria-pressed="false" aria-controls="viability">
         📉 Crop viability
@@ -143,8 +144,8 @@
         <svg class="hill hill--near" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 165 C 260 140 420 150 600 168 S 950 185 1200 160 V200 H0 Z"/></svg>
         <div class="particles rice-row" data-particle="stalk" data-count="70"></div>
       </div>
-      <h2 id="crops-title">What Grows There Today</h2>
-      <p class="screen-intro">These crops already grow in the climate your field will have in 2045.</p>
+      <h2 id="crops-title">Crops suited to the twin's climate</h2>
+      <p class="screen-intro" data-copy="crops_there.subline">Crops suited to the twin's climate, with their tolerance sources.</p>
       <div id="crop-cards" class="crop-cards"></div>
     </section>
 
@@ -156,10 +157,10 @@
         <svg class="hill hill--far" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 130 L120 80 L210 115 L330 45 L450 110 L560 70 L680 120 L800 55 L930 105 L1040 65 L1200 115 V200 H0 Z"/></svg>
         <svg class="hill hill--near" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 160 L150 120 L280 150 L420 105 L560 155 L700 125 L860 160 L1000 118 L1200 150 V200 H0 Z"/></svg>
       </div>
-      <h2>Climate Signatures</h2>
+      <h2 data-copy="honesty_panel.title">Side by side: your field in 2045 vs its twin today</h2>
       <p class="screen-intro">
-        Your field's projected 2045 climate next to its twin's climate today.
-        Hover over or tap a row to see why it matters to a farmer.
+        <span data-copy="honesty_panel.intro">Eight numbers, all computed from NASA POWER data. Closer numbers mean a better match.</span>
+        <span class="screen-only">Hover over or tap a row to see why it matters to a farmer.</span>
       </p>
       <div class="compare-layout">
         <figure class="radar-panel">
@@ -185,7 +186,8 @@
         <svg class="wave wave--mid" viewBox="0 0 2400 120" preserveAspectRatio="none"><path d="M0 70 Q100 40 200 70 T400 70 T600 70 T800 70 T1000 70 T1200 70 T1400 70 T1600 70 T1800 70 T2000 70 T2200 70 T2400 70 V120 H0 Z"/></svg>
         <svg class="wave wave--front" viewBox="0 0 2400 120" preserveAspectRatio="none"><path d="M0 80 Q200 55 400 80 T800 80 T1200 80 T1600 80 T2000 80 T2400 80 V120 H0 Z"/></svg>
       </div>
-      <h2>Your Field Has Already Moved</h2>
+      <h2 data-copy="drift.title">Your field has already moved</h2>
+      <p class="screen-intro" data-copy="drift.subline">This is the backtest. It shows our method describes real, measured change, not a forecast.</p>
       <div id="drift-map"></div>
       <p id="drift-text"></p>
     </section>
@@ -202,18 +204,24 @@
         </svg>
         <div class="particles grass-row" data-particle="tuft" data-count="22"></div>
       </div>
-      <h2>Current Crop Viability</h2>
+      <h2 data-copy="transition.title">How long will today's crop hold?</h2>
+      <p class="screen-intro" data-copy="transition.subline">Viability of the field's current crop, scored every five years.</p>
       <canvas id="viability-chart"></canvas>
     </section>
 
     <!-- Caveats — always visible -->
     <aside id="caveats">
-      <h3>Important Notes</h3>
+      <h3 data-copy="caveats.title">What this tool does and does not do</h3>
       <ul id="caveat-list">
         <!-- populated from contract.caveats -->
       </ul>
     </aside>
   </main>
+
+  <footer class="site-footer">
+    <p data-copy="data_credit">Climate data: NASA POWER. Crop tolerances: FAO ECOCROP.</p>
+    <p data-copy="ai_disclosure">Built with Kiro, Amazon's AI coding tool, as disclosed under NASA Space Apps rules.</p>
+  </footer>
 
   <!-- Story mode controls (shown only during story mode) -->
   <div id="story-bar" class="story-bar" hidden role="region" aria-label="Story mode">
