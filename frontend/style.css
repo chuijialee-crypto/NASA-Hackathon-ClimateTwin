@@ -4,6 +4,14 @@
   box-sizing: border-box;
 }
 
+:root {
+  --field: #2ed573;
+  --twin: #ff6b6b;
+  --past: #ffa502;
+  --accent: #a5b4fc;
+  --fade: 350ms; /* keep in sync with SCREEN_FADE_MS in app.js */
+}
+
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #1a1a2e;
@@ -33,14 +41,42 @@ main {
 }
 
 .screen {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .screen h2 {
   margin-bottom: 1rem;
 }
 
-/* Anchor the overlay to the map section, not the page. */
+.screen-intro {
+  margin-bottom: 1rem;
+  opacity: 0.8;
+}
+
+/* ---------- Status line ---------- */
+
+.status {
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 4px solid var(--accent);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.status[data-tone="warn"] {
+  border-left-color: var(--past);
+  background: rgba(255, 165, 2, 0.1);
+}
+
+.status[data-tone="error"] {
+  border-left-color: var(--twin);
+  background: rgba(255, 107, 107, 0.12);
+}
+
+/* ---------- Screen 1: The Reveal ---------- */
+
+/* Anchor the overlays to the map section, not the page. */
 #reveal {
   position: relative;
 }
@@ -52,17 +88,35 @@ main {
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
+/* Show that the map is clickable. */
+#map.leaflet-container {
+  cursor: crosshair;
+}
+
+#reveal.is-loading #map {
+  filter: saturate(0.4) brightness(0.8);
+  transition: filter 0.3s;
+}
+
 #result-text {
   position: absolute;
   top: 20px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -10px);
   background: rgba(0,0,0,0.85);
   padding: 1.5rem 2rem;
   border-radius: 8px;
   text-align: center;
   z-index: 1000;
   max-width: 90%;
+  opacity: 0;
+  pointer-events: none; /* let clicks reach the map */
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#result-text.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .reveal-headline {
@@ -74,6 +128,189 @@ main {
 .reveal-detail {
   font-size: 1.1rem;
   opacity: 0.8;
+}
+
+.reveal-loading {
+  font-size: 1.3rem;
+}
+
+/* Animated "..." after the loading text */
+.dots::after {
+  content: '';
+  display: inline-block;
+  width: 1.5em;
+  text-align: left;
+  animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+}
+
+/* Loading overlay with spinner */
+.map-loading {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.85);
+  animation: fade-in 0.25s ease;
+}
+
+.map-loading[hidden] {
+  display: none;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------- Map markers ---------- */
+
+.ct-marker {
+  background: none;
+  border: none;
+}
+
+.ct-pin {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Pulsing ring around each marker */
+.ct-pin::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  animation: pulse 2s ease-out infinite;
+}
+
+.ct-marker--field .ct-pin { background: var(--field); color: var(--field); }
+.ct-marker--twin  .ct-pin { background: var(--twin);  color: var(--twin); }
+.ct-marker--past  .ct-pin { background: var(--past);  color: var(--past); }
+
+/* Hover effect */
+.ct-marker:hover .ct-pin {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* Twin marker pops in when the arc arrives */
+.ct-marker--pop .ct-pin {
+  animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pulse {
+  from { transform: scale(1);   opacity: 0.8; }
+  to   { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes pop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+.ct-arc {
+  cursor: pointer;
+  transition: stroke-width 0.15s;
+}
+
+.leaflet-tooltip.ct-tooltip {
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.leaflet-tooltip-top.ct-tooltip::before {
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* ---------- Show/hide buttons ---------- */
+
+.screen-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.toggle {
+  font: inherit;
+  font-size: 1.05rem;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.toggle:active {
+  transform: translateY(0);
+}
+
+.toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle[aria-pressed="true"] {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+}
+
+/* ---------- Optional screens: smooth fade/slide ---------- */
+
+.optional {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--fade) ease, transform var(--fade) ease;
+}
+
+.optional.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Honesty panel */
@@ -96,7 +333,15 @@ main {
 }
 
 #signature-table th {
-  color: #a5b4fc;
+  color: var(--accent);
+}
+
+#signature-table tbody tr {
+  transition: background-color 0.15s;
+}
+
+#signature-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* Drift */
@@ -117,6 +362,8 @@ main {
   border-radius: 8px;
   padding: 1rem;
 }
+
+/* ---------- Caveats ---------- */
 
 #caveats {
   margin-top: 3rem;
@@ -139,4 +386,13 @@ main {
 #caveat-list li {
   margin-bottom: 0.5rem;
   line-height: 1.5;
+}
+
+/* ---------- Respect "reduce motion" system setting ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

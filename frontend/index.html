@@ -14,31 +14,53 @@
   </header>
 
   <main>
-    <!-- Screen 1: The Reveal -->
+    <p id="status" class="status" role="status" aria-live="polite">
+      Click anywhere on the map to choose a field.
+    </p>
+
+    <!-- Screen 1: The Reveal (always shown) -->
     <section id="reveal" class="screen">
       <div id="map"></div>
+      <div id="map-loading" class="map-loading" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Reading 40 years of NASA climate data…</p>
+      </div>
       <div id="result-text" class="overlay">
         <!-- e.g., "Your field in 2045 is Central Thailand today." -->
       </div>
     </section>
 
+    <!-- Buttons that show/hide the optional screens -->
+    <nav id="screen-toggles" class="screen-toggles" aria-label="Optional screens">
+      <button type="button" class="toggle" data-target="honesty-panel" aria-pressed="false" aria-controls="honesty-panel">
+        📊 Compare climates
+      </button>
+      <button type="button" class="toggle" data-target="drift" aria-pressed="false" aria-controls="drift">
+        🧭 See the drift
+      </button>
+      <button type="button" class="toggle" data-target="viability" aria-pressed="false" aria-controls="viability">
+        📉 Crop viability
+      </button>
+    </nav>
+
     <!-- Screen 2: The Honesty Panel (optional) -->
-    <section id="honesty-panel" class="screen" style="display: none;">
+    <section id="honesty-panel" class="screen optional" hidden>
       <h2>Climate Signatures</h2>
+      <p class="screen-intro">Your field's projected 2045 climate next to its twin's climate today.</p>
       <table id="signature-table">
         <!-- 8 rows: field-2045 vs twin-today -->
       </table>
     </section>
 
     <!-- Screen 3: The Drift (optional) -->
-    <section id="drift" class="screen" style="display: none;">
+    <section id="drift" class="screen optional" hidden>
       <h2>Your Field Has Already Moved</h2>
       <div id="drift-map"></div>
       <p id="drift-text"></p>
     </section>
 
     <!-- Screen 4: Viability Curve (optional) -->
-    <section id="viability" class="screen" style="display: none;">
+    <section id="viability" class="screen optional" hidden>
       <h2>Current Crop Viability</h2>
       <canvas id="viability-chart"></canvas>
     </section>
