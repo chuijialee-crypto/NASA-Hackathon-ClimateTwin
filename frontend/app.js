@@ -9,6 +9,19 @@ const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '© OpenStreetMap';
 
 const ARC_DURATION_MS = 1600;
+const GLOBE_ARC_DURATION_MS = 1800;
+const GLOBE_IDLE_SPIN_MS = 6000;   // start spinning this long after the reveal
+const GLOBE_RESUME_SPIN_MS = 10000; // resume spinning this long after the user lets go
+
+// Earth texture: NASA Blue Marble. A local copy (works offline) is tried first.
+const EARTH_TEXTURES = [
+  'vendor/globe/earth-blue-marble.jpg',
+  'https://unpkg.com/three-globe@2/example/img/earth-blue-marble.jpg'
+];
+const EARTH_BUMP = [
+  'vendor/globe/earth-topology.png',
+  'https://unpkg.com/three-globe@2/example/img/earth-topology.png'
+];
 const SCREEN_FADE_MS = 350; // keep in sync with .optional transition in style.css
 
 const prefersReducedMotion =
@@ -75,7 +88,12 @@ const state = {
   arcFrame: null,
   driftMap: null,
   driftLayer: null,
-  chart: null
+  chart: null,
+  view: 'map',        // 'globe' or 'map'
+  revealToken: 0,     // drops reveal animations that a newer reveal replaced
+  globe: null,
+  globeIntroDone: false,
+  globeTimers: []
 };
 
 // ---------- Helpers ----------
@@ -233,10 +251,7 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   setLoading(true);
 
   if (fromClick) {
-    state.revealLayer.clearLayers();
-    addMarker(state.revealLayer, [lat, lon], 'field', {
-      tooltip: `Selected point<br>${lat.toFixed(2)}, ${lon.toFixed(2)}`
-    });
+    showPendingField(lat, lon);
     setStatus(`Looking up ${lat.toFixed(2)}, ${lon.toFixed(2)}…`);
   }
 
@@ -289,15 +304,45 @@ function initRevealMap() {
   state.revealMap = map;
 }
 
+// Shows the clicked point straight away while the twin is looked up.
+function showPendingField(lat, lon) {
+  state.revealToken++;
+  cancelArcAnimation();
+  const label = `Selected point<br>${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+  if (state.view === 'globe') {
+    globePendingField(lat, lon, label);
+  } else {
+    state.revealLayer.clearLayers();
+    addMarker(state.revealLayer, [lat, lon], 'field', { tooltip: label });
+  }
+}
+
 async function renderReveal(data, id) {
+  const token = ++state.revealToken;
+  const resultText = document.getElementById('result-text');
+  resultText.classList.remove('is-visible');
+
+  if (state.view === 'globe') await globeReveal(data, token);
+  else await mapReveal(data, token);
+
+  // A newer click or replay took over mid-animation.
+  if (id !== state.requestId || token !== state.revealToken) return;
+
+  const { twin } = data;
+  resultText.innerHTML = `
+    <p class="reveal-headline">Your field in 2045 is <strong>${escapeHtml(twin.place)}</strong> today.</p>
+    <p class="reveal-detail">Climate match: ${pct(twin.match_score)}%</p>
+  `;
+  resultText.classList.add('is-visible');
+}
+
+async function mapReveal(data, token) {
   const { field, twin } = data;
   const map = state.revealMap;
   const layer = state.revealLayer;
-  const resultText = document.getElementById('result-text');
 
   cancelArcAnimation(); // story mode can replay the reveal mid-animation
   layer.clearLayers();
-  resultText.classList.remove('is-visible');
 
   addMarker(layer, [field.lat, field.lon], 'field', {
     tooltip: `<b>${escapeHtml(field.name)}</b><br>Your field`,
@@ -328,7 +373,7 @@ async function renderReveal(data, id) {
   arc.on('mouseout', () => arc.setStyle({ weight: 3 }));
 
   await animateArc(arc, arcPoints([field.lat, field.lon], [twin.lat, twin.lon]));
-  if (id !== state.requestId) return; // a newer click took over mid-animation
+  if (token !== state.revealToken) return;
 
   addMarker(layer, [twin.lat, twin.lon], 'twin', {
     pop: true,
@@ -336,12 +381,288 @@ async function renderReveal(data, id) {
     popup: `<b>${escapeHtml(twin.place)}</b><br>Your 2045 climate twin<br>` +
       `Match: ${pct(twin.match_score)}%`
   });
+}
 
-  resultText.innerHTML = `
-    <p class="reveal-headline">Your field in 2045 is <strong>${escapeHtml(twin.place)}</strong> today.</p>
-    <p class="reveal-detail">Climate match: ${pct(twin.match_score)}%</p>
-  `;
-  resultText.classList.add('is-visible');
+// ---------- 3D globe (globe.gl) ----------
+
+function webglAvailable() {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+function wait(ms) {
+  return new Promise(resolve => {
+    const t = setTimeout(resolve, ms);
+    state.globeTimers.push(t);
+  });
+}
+
+function clearGlobeTimers() {
+  state.globeTimers.forEach(clearTimeout);
+  state.globeTimers = [];
+}
+
+// Resolves with the first image URL that loads, or null if none do.
+function firstLoadable(urls) {
+  return urls.reduce((prev, url) => prev.then(found => found || new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(url);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  })), Promise.resolve(null));
+}
+
+// Midpoint and angular distance (degrees) between two points on the sphere.
+function greatCircle(a, b) {
+  const rad = Math.PI / 180;
+  const toVec = p => [
+    Math.cos(p.lat * rad) * Math.cos(p.lon * rad),
+    Math.cos(p.lat * rad) * Math.sin(p.lon * rad),
+    Math.sin(p.lat * rad)
+  ];
+  const [x1, y1, z1] = toVec(a);
+  const [x2, y2, z2] = toVec(b);
+  const dot = Math.min(1, Math.max(-1, x1 * x2 + y1 * y2 + z1 * z2));
+  const [mx, my, mz] = [x1 + x2, y1 + y2, z1 + z2];
+  return {
+    lat: Math.atan2(mz, Math.hypot(mx, my)) / rad,
+    lon: Math.atan2(my, mx) / rad,
+    degrees: Math.acos(dot) / rad
+  };
+}
+
+function globeMarker(kind, labelHtml, { pop = false } = {}) {
+  const el = document.createElement('div');
+  el.className = `ct-marker ct-marker--${kind} globe-marker${pop ? ' ct-marker--pop' : ''}`;
+  el.innerHTML = `<span class="ct-pin"></span><span class="globe-label">${labelHtml}</span>`;
+  return el;
+}
+
+const spinControl = {
+  timer: null,
+  stop() {
+    clearTimeout(this.timer);
+    if (state.globe) state.globe.controls().autoRotate = false;
+  },
+  startAfter(ms) {
+    clearTimeout(this.timer);
+    if (prefersReducedMotion || !state.globe) return;
+    this.timer = setTimeout(() => {
+      if (state.globe && state.view === 'globe') state.globe.controls().autoRotate = true;
+    }, ms);
+  }
+};
+
+function initGlobe() {
+  if (typeof Globe !== 'function' || !webglAvailable()) return false;
+  const el = document.getElementById('globe-view');
+  let globe;
+  try {
+    globe = Globe({ animateIn: !prefersReducedMotion })(el)
+      .backgroundColor('rgba(0, 0, 0, 0)')   // let the galaxy show through
+      .showAtmosphere(true)
+      .atmosphereColor('#7fdcff')
+      .atmosphereAltitude(0.2)
+      .showGraticules(true)
+      // Markers are DOM elements so they share the flat map's look and hover effects
+      .htmlElementsData([])
+      .htmlLat('lat')
+      .htmlLng('lng')
+      .htmlAltitude(0.01)
+      .htmlElement(d => d.el)
+      .htmlTransitionDuration(0)
+      // Fade out markers on the far side of the Earth
+      .htmlElementVisibilityModifier((node, visible) => { node.style.opacity = visible ? '1' : '0'; })
+      .arcsData([])
+      .arcStartLat('startLat').arcStartLng('startLng')
+      .arcEndLat('endLat').arcEndLng('endLng')
+      .arcColor('color')
+      .arcStroke('stroke')
+      .arcAltitudeAutoScale(0.45)
+      .arcDashLength('dashLength')
+      .arcDashGap('dashGap')
+      .arcDashInitialGap('dashInitialGap')
+      .arcDashAnimateTime('dashAnimateTime')
+      .arcLabel('label')
+      .arcsTransitionDuration(0)
+      .ringsData([])
+      .ringColor(() => t => `rgba(255, 107, 107, ${1 - t})`)
+      .ringMaxRadius(4)
+      .ringPropagationSpeed(2.5)
+      .ringRepeatPeriod(1100)
+      .onGlobeClick(({ lat, lng }) => {
+        selectField(Number(lat.toFixed(2)), Number(lng.toFixed(2)), { fromClick: true });
+      });
+  } catch (err) {
+    console.warn('3D globe unavailable, using the flat map', err);
+    return false;
+  }
+
+  // Ocean-blue globe until (or unless) the Earth photo loads.
+  const material = globe.globeMaterial();
+  material.color.set('#1d4f91');
+  if (material.emissive) material.emissive.set('#06203f');
+
+  firstLoadable(EARTH_TEXTURES).then(url => {
+    if (!url) {
+      console.warn('Earth texture not found; showing a plain globe with grid lines.');
+      return;
+    }
+    material.color.set('#ffffff');
+    if (material.emissive) material.emissive.set('#000000');
+    globe.globeImageUrl(url).showGraticules(false);
+    firstLoadable(EARTH_BUMP).then(bump => { if (bump) globe.bumpImageUrl(bump); });
+  });
+
+  const controls = globe.controls();
+  controls.autoRotate = false;
+  controls.autoRotateSpeed = 0.35;
+  controls.enableDamping = true;
+  controls.minDistance = 130;
+  controls.maxDistance = 700;
+  controls.addEventListener('start', () => spinControl.stop());
+  controls.addEventListener('end', () => spinControl.startAfter(GLOBE_RESUME_SPIN_MS));
+
+  // Keep the canvas the same size as its box.
+  const resize = () => {
+    if (el.clientWidth && el.clientHeight) globe.width(el.clientWidth).height(el.clientHeight);
+  };
+  new ResizeObserver(resize).observe(el);
+  resize();
+
+  // Don't draw frames while the globe is hidden or scrolled off screen.
+  new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting && state.view === 'globe') globe.resumeAnimation();
+    else globe.pauseAnimation();
+  }).observe(el);
+
+  state.globe = globe;
+  return true;
+}
+
+function globePendingField(lat, lon, label) {
+  clearGlobeTimers();
+  spinControl.stop();
+  state.globe
+    .arcsData([])
+    .ringsData([])
+    .htmlElementsData([{ lat, lng: lon, el: globeMarker('field', label) }]);
+}
+
+async function globeReveal(data, token) {
+  const { field, twin } = data;
+  const globe = state.globe;
+  const live = () => token === state.revealToken;
+
+  clearGlobeTimers();
+  spinControl.stop();
+
+  const fieldPoint = {
+    lat: field.lat, lng: field.lon,
+    el: globeMarker('field', `<b>${escapeHtml(field.name)}</b><br>Your field`)
+  };
+  globe.arcsData([]).ringsData([]).htmlElementsData([fieldPoint]);
+
+  // Point the camera between the two places, a little north so the pair sits
+  // below the headline box. Farther apart = higher camera.
+  const mid = greatCircle({ lat: field.lat, lon: field.lon }, { lat: twin.lat, lon: twin.lon });
+  const altitude = Math.min(2.6, Math.max(0.75, 0.55 + mid.degrees / 40));
+  const view = { lat: mid.lat + 4 + mid.degrees * 0.15, lng: mid.lon, altitude };
+
+  if (prefersReducedMotion) {
+    globe.pointOfView(view, 0);
+  } else if (!state.globeIntroDone) {
+    // First time: start far out, a third of the way round, and swoop in.
+    globe.pointOfView({ lat: view.lat - 10, lng: view.lng - 120, altitude: 3.2 }, 0);
+    globe.pointOfView(view, 2400);
+    await wait(2400);
+  } else {
+    globe.pointOfView(view, 1200);
+    await wait(1200);
+  }
+  state.globeIntroDone = true;
+  if (!live()) return;
+
+  const coords = { startLat: field.lat, startLng: field.lon, endLat: twin.lat, endLng: twin.lon };
+  const label = `${twin.distance_km ?? '?'} km to your climate twin`;
+  const fullArc = {
+    ...coords, label, color: ['#2ed573', '#ff6b6b'], stroke: 0.9,
+    dashLength: 1, dashGap: 0, dashInitialGap: 0, dashAnimateTime: 0
+  };
+
+  if (!prefersReducedMotion) {
+    // Draw the arc in: one dash, starting just before the field, slides in until
+    // it covers the whole arc. It covers it after a third of the cycle.
+    globe.arcsData([{
+      ...fullArc, dashLength: 1, dashGap: 2, dashInitialGap: 1,
+      dashAnimateTime: GLOBE_ARC_DURATION_MS * 3
+    }]);
+    await wait(GLOBE_ARC_DURATION_MS);
+    if (!live()) return;
+  }
+
+  // Finished arc, plus a bright pulse that keeps travelling field → twin.
+  const arcs = [fullArc];
+  if (!prefersReducedMotion) {
+    arcs.push({
+      ...coords, label, color: ['rgba(255, 255, 255, 0)', '#fff6c9'], stroke: 1.4,
+      dashLength: 0.12, dashGap: 0.88, dashInitialGap: 0, dashAnimateTime: 2600
+    });
+  }
+  globe.arcsData(arcs);
+
+  globe.htmlElementsData([fieldPoint, {
+    lat: twin.lat, lng: twin.lon,
+    el: globeMarker('twin', `<b>${escapeHtml(twin.place)}</b><br>Your 2045 climate twin · ${pct(twin.match_score)}% match`, { pop: true })
+  }]);
+  if (!prefersReducedMotion) globe.ringsData([{ lat: twin.lat, lng: twin.lon }]);
+
+  spinControl.startAfter(GLOBE_IDLE_SPIN_MS);
+}
+
+// ---------- Switching between globe and flat map ----------
+
+const VIEW_KEY = 'climate-twin-view';
+
+function setView(view, { replay = true } = {}) {
+  if (view === 'globe' && !state.globe) view = 'map';
+  state.view = view;
+  try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode */ }
+
+  document.getElementById('globe-view').hidden = view !== 'globe';
+  document.getElementById('map').hidden = view !== 'map';
+  document.querySelectorAll('.view-btn').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+
+  if (view === 'map') {
+    clearGlobeTimers();
+    spinControl.stop();
+    if (state.globe) state.globe.pauseAnimation();
+    state.revealMap.invalidateSize(); // it was hidden, so re-measure
+  } else {
+    cancelArcAnimation();
+    state.globe.resumeAnimation();
+  }
+
+  if (replay && state.data) renderReveal(state.data, state.requestId);
+}
+
+function initViews() {
+  const hasGlobe = initGlobe();
+  document.getElementById('view-switch').hidden = !hasGlobe;
+  document.querySelectorAll('.view-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      if (button.dataset.view !== state.view) setView(button.dataset.view);
+    });
+  });
+  let saved = null;
+  try { saved = localStorage.getItem(VIEW_KEY); } catch { /* private mode */ }
+  setView(hasGlobe && saved !== 'map' ? 'globe' : 'map', { replay: false });
 }
 
 // ---------- Screen 2: The Honesty Panel ----------
@@ -736,7 +1057,8 @@ function initScenes() {
 
 function init() {
   initScenes();
-  initRevealMap();
+  initRevealMap();   // create the flat map while its box is still visible
+  initViews();       // then add the 3D globe and pick the starting view
   initToggles();
   initStory();
   selectField(DEMO_FIELD.lat, DEMO_FIELD.lon);
