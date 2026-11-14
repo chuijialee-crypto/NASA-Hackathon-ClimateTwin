@@ -103,7 +103,7 @@ const RADAR_RANGES = {
 // Story mode order. The reveal stays on screen; each later step opens one screen.
 const STORY_STEPS = [
   { id: 'reveal', title: 'The reveal' },
-  { id: 'crops', title: 'What grows there' },
+  { id: 'crops', title: 'Crops for this climate' },
   { id: 'honesty-panel', title: 'Why it matches' },
   { id: 'drift', title: 'The drift' },
   { id: 'viability', title: 'Crop viability' }
@@ -126,6 +126,59 @@ const state = {
   globeTimers: []
 };
 
+// ---------- UI copy (written by Role 3 in ui_copy.json) ----------
+
+let COPY = {};
+
+// Looks up "a.b.c" in ui_copy.json; returns fallback if it's missing.
+function copy(path, fallback = '') {
+  const value = path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), COPY);
+  return typeof value === 'string' && value.trim() ? prettyUnits(value) : fallback;
+}
+
+// Fills {name} placeholders, e.g. fill('In {place}', { place: 'Thailand' }).
+function fill(template, values) {
+  return template.replace(/\{(\w+)\}/g, (m, k) => (k in values ? String(values[k]) : m));
+}
+
+// The copy is typed in plain ASCII ("35C", "MJ/m2"); show proper symbols.
+function prettyUnits(text) {
+  return String(text)
+    .replace(/\(C\)/g, '(°C)')
+    .replace(/(\d)C\b/g, '$1°C')
+    .replace(/MJ\/m2\b/g, 'MJ/m²');
+}
+
+async function loadUiCopy() {
+  try {
+    const res = await fetch('./ui_copy.json');
+    if (!res.ok) throw new Error(res.status);
+    COPY = await res.json();
+  } catch (err) {
+    console.warn('ui_copy.json not loaded; using built-in text', err);
+    return;
+  }
+  document.querySelectorAll('[data-copy]').forEach(el => {
+    const text = copy(el.dataset.copy);
+    if (text) el.textContent = text;
+  });
+  document.title = copy('app_name', document.title);
+}
+
+function sigLabel(key) {
+  return copy(`honesty_panel.signature_labels.${key}`, SIGNATURES[key].label);
+}
+
+// Role 3's tooltip is "What it is. Why it matters." Split at the first sentence.
+function sigTip(key) {
+  const text = copy(`tooltips.${key}`);
+  if (!text) return { what: SIGNATURES[key].what, why: SIGNATURES[key].why };
+  const cut = text.search(/\.\s/);
+  return cut < 0
+    ? { what: '', why: text }
+    : { what: text.slice(0, cut + 1), why: text.slice(cut + 2) };
+}
+
 // ---------- Helpers ----------
 
 function escapeHtml(value) {
@@ -136,6 +189,11 @@ function escapeHtml(value) {
 
 function fmt(value, digits) {
   return typeof value === 'number' ? value.toFixed(digits) : '—';
+}
+
+function distanceLabel(twin) {
+  const help = copy('tooltips.distance_km');
+  return `<b>${twin.distance_km ?? '?'} km</b> to your climate twin${help ? `<br>${escapeHtml(help)}` : ''}`;
 }
 
 function pct(score) {
@@ -314,10 +372,12 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
       'warn'
     );
   } else {
-    setStatus('Showing demo data (engine not connected). Click anywhere on the map to choose a field.', 'warn');
+    setStatus(`Showing demo data (engine not connected). ${copy('buttons.pick_field', 'Pick a field on the map')}, or choose one below.`, 'warn');
   }
 
-  renderCaveats(state.data.caveats || []);
+  // Role 3 owns the caveat wording; the API's list is the fallback.
+  const role3Caveats = Array.isArray(COPY.caveats?.items) ? COPY.caveats.items.map(prettyUnits) : [];
+  renderCaveats(role3Caveats.length ? role3Caveats : (state.data.caveats || []));
   refreshOpenScreens();
   await renderReveal(state.data, id);
 }
@@ -434,9 +494,14 @@ async function renderReveal(data, id) {
   if (id !== state.requestId || token !== state.revealToken) return;
 
   const { twin } = data;
+  // Bold the place name inside Role 3's headline template.
+  const [before, after = ''] = copy('reveal.headline_template', 'Your field in 2045 is {twin_place} today.').split('{twin_place}');
+  const subline = copy('reveal.subline');
+  const matchHelp = copy('tooltips.match_score');
   resultText.innerHTML = `
-    <p class="reveal-headline">Your field in 2045 is <strong>${escapeHtml(twin.place)}</strong> today.</p>
-    <p class="reveal-detail">Climate match: ${pct(twin.match_score)}%</p>
+    <p class="reveal-headline">${escapeHtml(before)}<strong>${escapeHtml(twin.place)}</strong>${escapeHtml(after)}</p>
+    ${subline ? `<p class="reveal-subline">${escapeHtml(subline)}</p>` : ''}
+    <p class="reveal-detail"><span class="reveal-hint" ${matchHelp ? `title="${escapeHtml(matchHelp)}" tabindex="0"` : ''}>Climate match: ${pct(twin.match_score)}%${matchHelp ? ' ⓘ' : ''}</span></p>
   `;
   resultText.classList.add('is-visible');
   setExportReady(true);
@@ -451,8 +516,8 @@ async function mapReveal(data, token) {
   layer.clearLayers();
 
   addMarker(layer, [field.lat, field.lon], 'field', {
-    tooltip: `<b>${escapeHtml(field.name)}</b><br>Your field`,
-    popup: `<b>${escapeHtml(field.name)}</b><br>Your field today`
+    tooltip: `<b>${escapeHtml(field.name)}</b><br>${escapeHtml(copy('reveal.field_label', 'Your field'))}`,
+    popup: `<b>${escapeHtml(field.name)}</b><br>${escapeHtml(copy('reveal.field_label', 'Your field'))}`
   });
 
   map.flyToBounds([
@@ -471,7 +536,7 @@ async function mapReveal(data, token) {
     dashArray: '10, 10',
     className: 'ct-arc'
   }).addTo(layer);
-  arc.bindTooltip(`${twin.distance_km ?? '?'} km to your climate twin`, {
+  arc.bindTooltip(distanceLabel(twin), {
     sticky: true,
     className: 'ct-tooltip'
   });
@@ -483,8 +548,8 @@ async function mapReveal(data, token) {
 
   addMarker(layer, [twin.lat, twin.lon], 'twin', {
     pop: true,
-    tooltip: `<b>${escapeHtml(twin.place)}</b><br>Your 2045 climate twin`,
-    popup: `<b>${escapeHtml(twin.place)}</b><br>Your 2045 climate twin<br>` +
+    tooltip: `<b>${escapeHtml(twin.place)}</b><br>${escapeHtml(copy('reveal.twin_label', 'Your 2045 climate twin'))}`,
+    popup: `<b>${escapeHtml(twin.place)}</b><br>${escapeHtml(copy('reveal.twin_label', 'Your 2045 climate twin'))}<br>` +
       `Match: ${pct(twin.match_score)}%`
   });
 }
@@ -674,7 +739,7 @@ async function globeReveal(data, token) {
 
   const fieldPoint = {
     lat: field.lat, lng: field.lon,
-    el: globeMarker('field', `<b>${escapeHtml(field.name)}</b><br>Your field`)
+    el: globeMarker('field', `<b>${escapeHtml(field.name)}</b><br>${escapeHtml(copy('reveal.field_label', 'Your field'))}`)
   };
   globe.arcsData([]).ringsData([]).htmlElementsData([fieldPoint]);
 
@@ -699,7 +764,7 @@ async function globeReveal(data, token) {
   if (!live()) return;
 
   const coords = { startLat: field.lat, startLng: field.lon, endLat: twin.lat, endLng: twin.lon };
-  const label = `${twin.distance_km ?? '?'} km to your climate twin`;
+  const label = distanceLabel(twin);
   const fullArc = {
     ...coords, label, color: ['#2ed573', '#ff6b6b'], stroke: 0.9,
     dashLength: 1, dashGap: 0, dashInitialGap: 0, dashAnimateTime: 0
@@ -728,7 +793,7 @@ async function globeReveal(data, token) {
 
   globe.htmlElementsData([fieldPoint, {
     lat: twin.lat, lng: twin.lon,
-    el: globeMarker('twin', `<b>${escapeHtml(twin.place)}</b><br>Your 2045 climate twin · ${pct(twin.match_score)}% match`, { pop: true })
+    el: globeMarker('twin', `<b>${escapeHtml(twin.place)}</b><br>${escapeHtml(copy('reveal.twin_label', 'Your 2045 climate twin'))} · ${pct(twin.match_score)}% match`, { pop: true })
   }]);
   if (!prefersReducedMotion) globe.ringsData([{ lat: twin.lat, lng: twin.lon }]);
 
@@ -784,9 +849,9 @@ function renderHonestyPanel(data) {
   table.innerHTML = `
     <thead>
       <tr>
-        <th>Signature</th>
-        <th>Your Field (2045)</th>
-        <th>Twin (Today)</th>
+        <th>${escapeHtml(copy('honesty_panel.columns.signature', 'Signature'))}</th>
+        <th>${escapeHtml(copy('honesty_panel.columns.field_2045', 'Your Field (2045)'))}</th>
+        <th>${escapeHtml(copy('honesty_panel.columns.twin_now', 'Twin (Today)'))}</th>
         <th>Difference</th>
       </tr>
     </thead>
@@ -794,7 +859,9 @@ function renderHonestyPanel(data) {
   `;
 
   const tbody = table.querySelector('tbody');
-  for (const [key, { label, what, why }] of Object.entries(SIGNATURES)) {
+  for (const key of Object.keys(SIGNATURES)) {
+    const label = escapeHtml(sigLabel(key));
+    const { what, why } = sigTip(key);
     const fieldVal = signature_2045[key];
     const twinVal = twin.signature[key];
     const diff = typeof fieldVal === 'number' && typeof twinVal === 'number'
@@ -812,8 +879,8 @@ function renderHonestyPanel(data) {
       <td class="sig-label">
         ${label} <span class="info" aria-hidden="true">ⓘ</span>
         <span class="sig-tip" id="${tipId}" role="tooltip">
-          <span class="sig-tip-what">${what}</span>
-          <strong class="sig-tip-why">${why}</strong>
+          ${what ? `<span class="sig-tip-what">${escapeHtml(what)}</span>` : ''}
+          <strong class="sig-tip-why">${escapeHtml(why)}</strong>
         </span>
       </td>
       <td>${fmt(fieldVal, digits)}</td>
@@ -899,7 +966,7 @@ function renderRadar(data) {
               const digits = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 }[key] ?? 1;
               return `${ctx.dataset.label}: ${fmt(ctx.dataset.raw[ctx.dataIndex], digits)}`;
             },
-            title: items => SIGNATURES[keys[items[0].dataIndex]].label
+            title: items => sigLabel(keys[items[0].dataIndex])
           }
         }
       }
@@ -924,7 +991,7 @@ function renderCrops(data) {
   const container = document.getElementById('crop-cards');
 
   document.getElementById('crops-title').textContent =
-    `What Grows in ${data.twin.place} Today`;
+    fill(copy('crops_there.title', "Crops suited to {twin_place}'s climate"), { twin_place: data.twin.place });
 
   if (crops.length === 0) {
     container.innerHTML = '<p class="crop-empty">No crop data for this twin yet.</p>';
@@ -945,7 +1012,7 @@ function renderCrops(data) {
 
     card.innerHTML = `
       <h3 class="crop-name">🌾 ${escapeHtml(crop.name)}</h3>
-      <p class="crop-note">${escapeHtml(crop.note)}</p>
+      <p class="crop-note">${escapeHtml(prettyUnits(crop.note || ''))}</p>
       ${source}
     `;
     return card;
@@ -970,10 +1037,10 @@ function renderDrift(data) {
     tooltip: '<b>Your field</b>'
   });
   addMarker(state.driftLayer, [twin_1995.lat, twin_1995.lon], 'past', {
-    tooltip: `<b>1995 twin</b><br>${escapeHtml(twin_1995.place)}`
+    tooltip: `<b>${escapeHtml(copy('drift.twin_1995_label', 'Twin in 1995'))}</b><br>${escapeHtml(twin_1995.place)}`
   });
   addMarker(state.driftLayer, [twin.lat, twin.lon], 'twin', {
-    tooltip: `<b>2025 twin</b><br>${escapeHtml(twin.place)}`
+    tooltip: `<b>${escapeHtml(copy('drift.twin_now_label', 'Twin today'))}</b><br>${escapeHtml(twin.place)}`
   });
 
   L.polyline([
@@ -990,7 +1057,7 @@ function renderDrift(data) {
   ], { padding: [40, 40] });
 
   document.getElementById('drift-text').textContent =
-    `Your field has already moved ${twin_1995.drift_km} km in climate terms from 1995 to today.`;
+    fill(copy('drift.template', "In climate terms, your field's twin has drifted {drift_km} km since 1995."), { drift_km: twin_1995.drift_km });
 }
 
 // ---------- Screen 4: Viability Curve ----------
@@ -1030,10 +1097,10 @@ function renderViability(data) {
         y: {
           beginAtZero: true,
           max: 1,
-          title: { display: true, text: 'Viability Score' }
+          title: { display: true, text: copy('transition.y_axis', 'Viability Score') }
         },
         x: {
-          title: { display: true, text: 'Year' }
+          title: { display: true, text: copy('transition.x_axis', 'Year') }
         }
       }
     }
@@ -1361,7 +1428,7 @@ function composeSnapshot(data, corsTiles = null) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#9ff0c8';
   ctx.font = `800 26px ${SNAPSHOT_FONT}`;
-  ctx.fillText('CLIMATE TWIN', tx, 48);
+  ctx.fillText(copy('app_name', 'Climate Twin').toUpperCase(), tx, 48);
 
   ctx.fillStyle = '#e8eefc';
   ctx.font = `500 26px ${SNAPSHOT_FONT}`;
@@ -1384,17 +1451,17 @@ function composeSnapshot(data, corsTiles = null) {
     `Twin: ${twin.lat.toFixed(2)}, ${twin.lon.toFixed(2)} · ${twin.distance_km ?? '?'} km away`
   ];
   if (past && typeof past.drift_km === 'number') {
-    lines.push(`Already moved ${past.drift_km} km in climate terms since 1995`);
+    lines.push(`Twin has drifted ${past.drift_km} km since 1995`);
   }
   const crops = (data.crops_there || []).map(c => c.name).filter(Boolean);
-  if (crops.length) lines.push(`Grown there today: ${crops.slice(0, 4).join(', ')}`);
+  if (crops.length) lines.push(`Suited to its climate: ${crops.slice(0, 4).join(', ')}`);
   for (const line of lines) y = drawWrapped(ctx, line, tx, y + 6, tw, 26);
 
   ctx.fillStyle = 'rgba(201, 214, 245, 0.75)';
   ctx.font = `400 15px ${SNAPSHOT_FONT}`;
   const date = new Date().toISOString().slice(0, 10);
   let foot = drawWrapped(ctx,
-    'Data: NASA POWER, ~50 km grid. Linear trend, not a forecast. Check with a local agricultural adviser.',
+    `${copy('data_credit', 'Climate data: NASA POWER.')} ~50 km grid. Linear trend, not a forecast. Check with a local agricultural adviser.`,
     tx, SNAPSHOT_H - 104, tw, 20);
   drawWrapped(ctx, `Made ${date}${tilesIncluded ? '' : ' · map background not included'}`, tx, foot, tw, 20);
   return canvas;
@@ -1546,11 +1613,13 @@ function initScenes() {
 
 // ---------- Start ----------
 
-function init() {
+async function init() {
+  await loadUiCopy();   // Role 3's wording, before anything is drawn
   initScenes();
   initRevealMap();   // create the flat map while its box is still visible
   initViews();       // then add the 3D globe and pick the starting view
   initFieldForm();
+  document.getElementById('use-demo').addEventListener('click', () => selectField(DEMO_FIELD.lat, DEMO_FIELD.lon));
   initExport();
   initToggles();
   initStory();
