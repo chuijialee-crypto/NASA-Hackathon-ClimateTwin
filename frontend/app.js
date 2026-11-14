@@ -677,9 +677,47 @@ function initStory() {
   });
 }
 
+// ---------- Animated scene backgrounds ----------
+
+// Fills each .particles container with decorative pieces. Every piece gets
+// random CSS variables (position, size, timing) so the scene doesn't look
+// tiled. The look and motion live in style.css.
+const PARTICLE_VARS = {
+  stalk: () => ({ x: rand(0, 100), h: rand(28, 62), delay: rand(-4, 0), dur: rand(2.6, 4.2) }),
+  cloud: () => ({ x: rand(0, 85), y: rand(4, 45), s: rand(0.6, 1.4), delay: rand(-80, 0), dur: rand(55, 90) }),
+  bird:  () => ({ x: rand(5, 90), y: rand(1, 8), s: rand(0.6, 1.2), delay: rand(-26, 0), dur: rand(18, 28) }),
+  heat:  () => ({ x: rand(5, 90), delay: rand(-6, 0), dur: rand(4, 7) }),
+  tuft:  () => ({ x: rand(0, 100), s: rand(0.7, 1.3), delay: rand(-12, 0) }),
+  star:  () => ({ x: rand(0, 100), y: rand(0, 100), s: rand(1, 3), delay: rand(-4, 0), dur: rand(1.8, 4) })
+};
+
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function initScenes() {
+  document.querySelectorAll('.particles[data-particle]').forEach(container => {
+    const kind = container.dataset.particle;
+    const makeVars = PARTICLE_VARS[kind];
+    const count = Number(container.dataset.count) || 0;
+    const pieces = [];
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('span');
+      piece.className = `p p--${kind}`;
+      for (const [name, value] of Object.entries(makeVars())) {
+        const unit = { x: '%', y: '%', h: 'px', delay: 's', dur: 's' }[name] ?? '';
+        piece.style.setProperty(`--${name}`, `${value.toFixed(2)}${unit}`);
+      }
+      pieces.push(piece);
+    }
+    container.replaceChildren(...pieces);
+  });
+}
+
 // ---------- Start ----------
 
 function init() {
+  initScenes();
   initRevealMap();
   initToggles();
   initStory();
