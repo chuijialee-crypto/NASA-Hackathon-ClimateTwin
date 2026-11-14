@@ -58,13 +58,22 @@
 
     <!-- Screen 1: The Reveal (always shown) -->
     <section id="reveal" class="screen">
-      <div id="map"></div>
-      <div id="map-loading" class="map-loading" hidden>
-        <div class="spinner" aria-hidden="true"></div>
-        <p>Reading 40 years of NASA climate data…</p>
+      <!-- Switch between the 3D globe and the flat map (hidden if 3D isn't supported) -->
+      <div id="view-switch" class="view-switch" role="group" aria-label="Map view" hidden>
+        <button type="button" class="view-btn" data-view="globe" aria-pressed="true">🌐 3D globe</button>
+        <button type="button" class="view-btn" data-view="map" aria-pressed="false">🗺️ Flat map</button>
       </div>
-      <div id="result-text" class="overlay">
-        <!-- e.g., "Your field in 2045 is Central Thailand today." -->
+
+      <div class="reveal-stage">
+        <div id="globe-view" hidden></div>
+        <div id="map"></div>
+        <div id="map-loading" class="map-loading" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Reading 40 years of NASA climate data…</p>
+        </div>
+        <div id="result-text" class="overlay">
+          <!-- e.g., "Your field in 2045 is Central Thailand today." -->
+        </div>
       </div>
     </section>
 
@@ -177,6 +186,8 @@
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/chartjs/chart.umd.js"></script>
+  <!-- globe.gl bundles its own Three.js, so vendor/globe/three.min.js isn't loaded -->
+  <script src="vendor/globe/globe.gl.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
