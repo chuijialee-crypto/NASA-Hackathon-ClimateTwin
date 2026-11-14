@@ -8,7 +8,31 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Page background: the Milky Way, with twinkling stars and shooting stars -->
+  <div class="cosmos" aria-hidden="true">
+    <div class="starfield starfield--far"></div>
+    <div class="milky-way">
+      <span class="mw-glow"></span>
+      <span class="mw-core"></span>
+      <span class="mw-dust"></span>
+    </div>
+    <span class="nebula nebula--rose"></span>
+    <span class="nebula nebula--blue"></span>
+    <div class="particles" data-particle="star" data-count="140"></div>
+    <div class="particles" data-particle="bright" data-count="14"></div>
+    <div class="particles" data-particle="meteor" data-count="4"></div>
+  </div>
+
   <header class="hero">
+    <!-- Header sky: Earth's aurora over deep space, in green and blue -->
+    <div class="hero-sky" aria-hidden="true">
+      <div class="starfield starfield--near"></div>
+      <span class="aurora aurora--1"></span>
+      <span class="aurora aurora--2"></span>
+      <span class="aurora aurora--3"></span>
+      <div class="particles" data-particle="star" data-count="45"></div>
+      <div class="particles" data-particle="meteor" data-count="2"></div>
+    </div>
     <!-- Decorative: a turning globe with crops circling it -->
     <div class="hero-globe" aria-hidden="true">
       <div class="globe">

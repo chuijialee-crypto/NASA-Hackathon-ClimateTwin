@@ -14,7 +14,7 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #1a1a2e;
+  background: #02030c; /* deep space; the galaxy layer paints over this */
   color: #eee;
 }
 
@@ -28,9 +28,15 @@ body {
   overflow: hidden;
   text-align: center;
   padding: 2rem 1rem 2.25rem;
-  background:
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.18), transparent 45%),
-    linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #00040d;
+  border-bottom: 1px solid rgba(110, 255, 210, 0.25);
+  box-shadow: 0 6px 40px rgba(0, 200, 170, 0.18);
+}
+
+/* Header content sits above its aurora sky */
+.hero > :not(.hero-sky) {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-globe {
@@ -162,19 +168,21 @@ main {
   margin-bottom: 1rem;
   padding: 0.6rem 1rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(6, 10, 35, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-left: 4px solid var(--accent);
   transition: background-color 0.3s, border-color 0.3s;
 }
 
 .status[data-tone="warn"] {
   border-left-color: var(--past);
-  background: rgba(255, 165, 2, 0.1);
+  background: rgba(40, 24, 6, 0.78);
 }
 
 .status[data-tone="error"] {
   border-left-color: var(--twin);
-  background: rgba(255, 107, 107, 0.12);
+  background: rgba(45, 10, 16, 0.8);
 }
 
 /* ---------- Screen 1: The Reveal ---------- */
@@ -376,7 +384,7 @@ main {
   font: inherit;
   font-size: 1.05rem;
   color: #eee;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(10, 14, 40, 0.75);
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
   padding: 0.6rem 1.2rem;
@@ -591,7 +599,9 @@ main {
 #caveats {
   margin-top: 3rem;
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(6, 10, 35, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-left: 4px solid #ff6b6b;
   border-radius: 4px;
 }
@@ -1231,6 +1241,240 @@ body.story-active {
   background: linear-gradient(135deg, #ffcf73 0%, #ff8a3d 100%);
   color: #4a2511;
   font-weight: 700;
+}
+
+/* =====================================================================
+   Space backgrounds
+   Page: the Milky Way in violet and gold.
+   Header: Earth's aurora in green and blue.
+   ===================================================================== */
+
+.cosmos {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, #0d1240 0%, #060824 45%, #02030c 100%);
+}
+
+/* Dense static stars, drawn as repeating dots (cheap to render) */
+.starfield {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 23px 41px, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 151px 97px, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 77px 183px, rgba(200, 220, 255, 0.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 203px 233px, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 261px 29px, rgba(255, 236, 200, 0.85) 50%, transparent 51%),
+    radial-gradient(1px 1px at 319px 151px, rgba(255, 255, 255, 0.6) 50%, transparent 51%);
+  background-size: 230px 250px, 310px 290px, 370px 330px, 270px 410px, 430px 350px, 390px 470px;
+  opacity: 0.85;
+}
+
+.milky-way {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 170vmax;
+  height: 46vmax;
+  transform: translate(-50%, -50%) rotate(-28deg);
+  animation: mw-drift 90s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.milky-way > span {
+  position: absolute;
+  border-radius: 50%;
+}
+
+/* Wide violet-blue haze of the galaxy's arms */
+.mw-glow {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(170, 150, 255, 0.3) 0%, rgba(90, 110, 220, 0.16) 35%, transparent 68%);
+  filter: blur(30px);
+}
+
+/* Warm, bright galactic core */
+.mw-core {
+  inset: 30% 22%;
+  background: radial-gradient(ellipse at 55% 50%,
+    rgba(255, 240, 220, 0.55) 0%, rgba(255, 200, 160, 0.3) 28%,
+    rgba(230, 150, 200, 0.15) 55%, transparent 75%);
+  filter: blur(18px);
+  animation: mw-breathe 12s ease-in-out infinite alternate;
+}
+
+/* Dark dust lane through the middle, like the real Milky Way */
+.mw-dust {
+  inset: 45% 12% 45%;
+  background: radial-gradient(ellipse, rgba(3, 4, 15, 0.8) 0%, rgba(3, 4, 15, 0.35) 50%, transparent 75%);
+  filter: blur(10px);
+  transform: rotate(1.5deg);
+}
+
+@keyframes mw-drift {
+  from { transform: translate(-50%, -50%) rotate(-31deg); }
+  to   { transform: translate(-50%, -50%) rotate(-24deg); }
+}
+
+@keyframes mw-breathe {
+  from { opacity: 0.7; }
+  to   { opacity: 1; }
+}
+
+.nebula {
+  position: absolute;
+  width: 48vmax;
+  height: 48vmax;
+  border-radius: 50%;
+  filter: blur(70px);
+  animation: nebula-float 40s ease-in-out infinite alternate;
+}
+
+.nebula--rose {
+  top: -8%;
+  left: -12%;
+  background: radial-gradient(circle, rgba(255, 90, 170, 0.22), transparent 65%);
+}
+
+.nebula--blue {
+  bottom: -14%;
+  right: -10%;
+  background: radial-gradient(circle, rgba(60, 140, 255, 0.24), transparent 65%);
+  animation-delay: -20s;
+}
+
+@keyframes nebula-float {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(4vmax, 3vmax) scale(1.15); }
+}
+
+/* Bright stars with a four-point glint, in white, blue and gold */
+.p--bright {
+  left: var(--x);
+  top: var(--y);
+  width: calc(var(--s) * 1px);
+  height: calc(var(--s) * 1px);
+  border-radius: 50%;
+  background: #fff;
+  color: rgba(200, 220, 255, 0.9);
+  box-shadow: 0 0 8px 2px currentColor;
+  animation: twinkle-bright var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+.p--bright:nth-child(3n) { color: rgba(140, 180, 255, 0.95); }
+.p--bright:nth-child(4n) { color: rgba(255, 210, 140, 0.95); }
+
+.p--bright::before,
+.p--bright::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+}
+
+.p--bright::before { width: 700%; height: 1px; transform: translate(-50%, -50%); }
+.p--bright::after  { width: 1px; height: 700%; transform: translate(-50%, -50%);
+  background: linear-gradient(0deg, transparent, currentColor, transparent); }
+
+@keyframes twinkle-bright {
+  from { opacity: 0.35; transform: scale(0.8); }
+  to   { opacity: 1;    transform: scale(1.25); }
+}
+
+/* Shooting star: a streak that flashes across, then waits for its next run */
+.p--meteor {
+  left: var(--x);
+  top: var(--y);
+  width: var(--len);
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(170, 205, 255, 0.55) 60%, #fff);
+  transform-origin: left center;
+  opacity: 0;
+  animation: meteor var(--dur) linear var(--delay) infinite;
+}
+
+.p--meteor::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 3px rgba(200, 225, 255, 0.9);
+}
+
+@keyframes meteor {
+  0%   { transform: rotate(var(--angle)) translateX(0) scaleX(0.3);     opacity: 0; }
+  1.5% { opacity: 1; }
+  10%  { transform: rotate(var(--angle)) translateX(480px) scaleX(1);   opacity: 0; }
+  100% { transform: rotate(var(--angle)) translateX(480px) scaleX(1);   opacity: 0; }
+}
+
+/* ---------- Header sky: aurora over the night side of Earth ---------- */
+
+.hero-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 15% 125%, rgba(0, 140, 255, 0.45), transparent 55%),
+    radial-gradient(ellipse at 85% 120%, rgba(0, 255, 170, 0.3), transparent 50%),
+    linear-gradient(180deg, #00040d 0%, #021428 60%, #03303f 100%);
+}
+
+.starfield--near {
+  opacity: 0.7;
+}
+
+/* Soft curtains of light that ripple slowly */
+.aurora {
+  position: absolute;
+  left: -15%;
+  width: 130%;
+  border-radius: 50%;
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  animation: aurora-wave 14s ease-in-out infinite alternate;
+}
+
+.aurora--1 {
+  top: 12%;
+  height: 38%;
+  background: linear-gradient(90deg, transparent 5%, rgba(46, 255, 170, 0.55) 30%,
+    rgba(0, 220, 255, 0.4) 60%, transparent 90%);
+}
+
+.aurora--2 {
+  top: 30%;
+  height: 30%;
+  background: linear-gradient(90deg, transparent 10%, rgba(0, 170, 255, 0.4) 40%,
+    rgba(120, 255, 200, 0.45) 70%, transparent 95%);
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+
+.aurora--3 {
+  top: 2%;
+  height: 22%;
+  background: linear-gradient(90deg, transparent 20%, rgba(150, 255, 120, 0.3) 50%, transparent 85%);
+  animation-duration: 11s;
+  animation-delay: -3s;
+}
+
+@keyframes aurora-wave {
+  from { transform: translateX(-7%) skewX(-18deg) scaleY(0.75); opacity: 0.55; }
+  to   { transform: translateX(7%)  skewX(14deg)  scaleY(1.15); opacity: 0.95; }
 }
 
 /* ---------- Respect "reduce motion" system setting ---------- */

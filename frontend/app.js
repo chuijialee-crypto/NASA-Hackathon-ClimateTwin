@@ -688,8 +688,25 @@ const PARTICLE_VARS = {
   bird:  () => ({ x: rand(5, 90), y: rand(1, 8), s: rand(0.6, 1.2), delay: rand(-26, 0), dur: rand(18, 28) }),
   heat:  () => ({ x: rand(5, 90), delay: rand(-6, 0), dur: rand(4, 7) }),
   tuft:  () => ({ x: rand(0, 100), s: rand(0.7, 1.3), delay: rand(-12, 0) }),
-  star:  () => ({ x: rand(0, 100), y: rand(0, 100), s: rand(1, 3), delay: rand(-4, 0), dur: rand(1.8, 4) })
+  star:  () => ({ x: rand(0, 100), y: rand(0, 100), s: rand(1, 3), delay: rand(-4, 0), dur: rand(1.8, 4) }),
+  // Larger stars with a cross-shaped glint
+  bright: () => ({ x: rand(2, 98), y: rand(2, 98), s: rand(3, 5), delay: rand(-6, 0), dur: rand(3, 6) }),
+  // Shooting stars: dur is the whole cycle; the streak itself takes the first ~12%
+  meteor: () => ({ ...meteorPath(), delay: rand(0, 9), dur: rand(7, 14) })
 };
+
+// A new start point, angle and length for a shooting star.
+function meteorPath() {
+  return { x: rand(-5, 85), y: rand(-5, 55), angle: rand(18, 42), len: rand(90, 170) };
+}
+
+const VAR_UNITS = { x: '%', y: '%', h: 'px', delay: 's', dur: 's', angle: 'deg', len: 'px' };
+
+function setVars(el, vars) {
+  for (const [name, value] of Object.entries(vars)) {
+    el.style.setProperty(`--${name}`, `${value.toFixed(2)}${VAR_UNITS[name] ?? ''}`);
+  }
+}
 
 function rand(min, max) {
   return min + Math.random() * (max - min);
@@ -704,9 +721,10 @@ function initScenes() {
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('span');
       piece.className = `p p--${kind}`;
-      for (const [name, value] of Object.entries(makeVars())) {
-        const unit = { x: '%', y: '%', h: 'px', delay: 's', dur: 's' }[name] ?? '';
-        piece.style.setProperty(`--${name}`, `${value.toFixed(2)}${unit}`);
+      setVars(piece, makeVars());
+      if (kind === 'meteor') {
+        // Each time the streak loops, send it somewhere new.
+        piece.addEventListener('animationiteration', () => setVars(piece, meteorPath()));
       }
       pieces.push(piece);
     }
