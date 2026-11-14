@@ -51,6 +51,13 @@
     <p class="tagline">Where is your farm going?</p>
   </header>
 
+  <!-- Shown only when printing -->
+  <div class="print-header">
+    <h1>Climate Twin report</h1>
+    <p id="print-meta"></p>
+    <img id="print-snapshot" alt="Map of your field and its climate twin">
+  </div>
+
   <main>
     <p id="status" class="status" role="status" aria-live="polite">
       Click anywhere on the map to choose a field.
@@ -58,10 +65,36 @@
 
     <!-- Screen 1: The Reveal (always shown) -->
     <section id="reveal" class="screen">
-      <!-- Switch between the 3D globe and the flat map (hidden if 3D isn't supported) -->
-      <div id="view-switch" class="view-switch" role="group" aria-label="Map view" hidden>
-        <button type="button" class="view-btn" data-view="globe" aria-pressed="true">🌐 3D globe</button>
-        <button type="button" class="view-btn" data-view="map" aria-pressed="false">🗺️ Flat map</button>
+      <div class="reveal-tools">
+        <!-- Pick a field by preset or by typing coordinates -->
+        <form id="field-form" class="field-form" novalidate>
+          <label class="field-preset">
+            <span class="field-form-label">Malaysian field</span>
+            <select id="field-preset">
+              <option value="">Choose a preset…</option>
+            </select>
+          </label>
+          <label>
+            <span class="field-form-label">Latitude</span>
+            <input id="field-lat" name="lat" type="text" inputmode="decimal" autocomplete="off"
+                   placeholder="6.12" aria-describedby="field-error field-lat-hint">
+            <span id="field-lat-hint" class="visually-hidden">−90 to 90. North is positive.</span>
+          </label>
+          <label>
+            <span class="field-form-label">Longitude</span>
+            <input id="field-lon" name="lon" type="text" inputmode="decimal" autocomplete="off"
+                   placeholder="100.37" aria-describedby="field-error field-lon-hint">
+            <span id="field-lon-hint" class="visually-hidden">−180 to 180. East is positive.</span>
+          </label>
+          <button type="submit" class="field-go">Find twin</button>
+          <p id="field-error" class="field-error" role="alert"></p>
+        </form>
+
+        <!-- Switch between the 3D globe and the flat map (hidden if 3D isn't supported) -->
+        <div id="view-switch" class="view-switch" role="group" aria-label="Map view" hidden>
+          <button type="button" class="view-btn" data-view="globe" aria-pressed="true">🌐 3D globe</button>
+          <button type="button" class="view-btn" data-view="map" aria-pressed="false">🗺️ Flat map</button>
+        </div>
       </div>
 
       <div class="reveal-stage">
@@ -94,6 +127,10 @@
       <button type="button" class="toggle toggle--viability" data-target="viability" aria-pressed="false" aria-controls="viability">
         📉 Crop viability
       </button>
+      <span class="result-actions">
+        <button type="button" id="download-image" class="action-btn" disabled>⬇ Download image</button>
+        <button type="button" id="print-report" class="action-btn" disabled>🖨 Print report</button>
+      </span>
     </nav>
 
     <!-- Crop cards: what is grown at the twin today (optional) -->
@@ -124,9 +161,19 @@
         Your field's projected 2045 climate next to its twin's climate today.
         Hover over or tap a row to see why it matters to a farmer.
       </p>
-      <table id="signature-table">
-        <!-- 8 rows: field-2045 vs twin-today -->
-      </table>
+      <div class="compare-layout">
+        <figure class="radar-panel">
+          <canvas id="radar-chart" role="img"
+                  aria-label="Radar chart of the 8 climate values for your field today, your field in 2045 and the twin today"></canvas>
+          <figcaption>
+            Each spoke runs from a low to a high value for farmland (display scale only).
+            <span class="screen-only">Hover over a point for the real number.</span>
+          </figcaption>
+        </figure>
+        <table id="signature-table">
+          <!-- 8 rows: field-2045 vs twin-today -->
+        </table>
+      </div>
     </section>
 
     <!-- Screen 3: The Drift (optional) -->

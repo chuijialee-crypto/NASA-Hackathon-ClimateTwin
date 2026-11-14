@@ -71,6 +71,35 @@ const SIGNATURES = {
   }
 };
 
+// Malaysian farming areas for the preset list. Coordinates are approximate
+// (town or district level), which is finer than NASA POWER's ~50 km grid.
+const MALAYSIA_PRESETS = [
+  { name: 'Kedah: padi (demo field)', lat: 6.12, lon: 100.37 },
+  { name: 'Perlis: padi (Arau)', lat: 6.43, lon: 100.27 },
+  { name: 'Kelantan: padi (Kota Bharu)', lat: 6.12, lon: 102.24 },
+  { name: 'Perak: padi (Kerian)', lat: 5.0, lon: 100.55 },
+  { name: 'Selangor: padi (Sekinchan)', lat: 3.5, lon: 101.1 },
+  { name: 'Pahang: durian (Raub)', lat: 3.79, lon: 101.86 },
+  { name: 'Pahang: tea and vegetables (Cameron Highlands)', lat: 4.47, lon: 101.38 },
+  { name: 'Johor: oil palm (Kluang)', lat: 2.03, lon: 103.32 },
+  { name: 'Sabah: oil palm (Lahad Datu)', lat: 5.03, lon: 118.33 },
+  { name: 'Sarawak: oil palm (Miri)', lat: 4.4, lon: 113.99 }
+];
+
+// Radar chart display scale: each spoke runs from a low to a high value for
+// farmland. Display only; it doesn't affect matching. Swap in the global
+// grid's min/max when the engine provides them.
+const RADAR_RANGES = {
+  mean_temp: [0, 32],
+  gdd: [0, 8500],
+  rain_mm: [0, 4000],
+  wet_share: [0, 1],
+  dry_spell_days: [0, 120],
+  heat_days: [0, 150],
+  solar: [8, 28],
+  cold_month: [-20, 30]
+};
+
 // Story mode order. The reveal stays on screen; each later step opens one screen.
 const STORY_STEPS = [
   { id: 'reveal', title: 'The reveal' },
@@ -89,6 +118,7 @@ const state = {
   driftMap: null,
   driftLayer: null,
   chart: null,
+  radar: null,
   view: 'map',        // 'globe' or 'map'
   revealToken: 0,     // drops reveal animations that a newer reveal replaced
   globe: null,
@@ -249,6 +279,8 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   const id = ++state.requestId;
   cancelArcAnimation();
   setLoading(true);
+  setExportReady(false);
+  syncFieldInputs(lat, lon);
 
   if (fromClick) {
     showPendingField(lat, lon);
@@ -272,12 +304,13 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
 
   setLoading(false);
   state.data = result.data;
+  state.live = result.live;
 
   if (result.live) {
     setStatus('Live result from the Climate Twin engine. Click the map to try another field.');
   } else if (fromClick) {
     setStatus(
-      'The engine isn\'t running yet, so this shows the Kedah demo result instead of the point you clicked.',
+      'The engine isn\'t running yet, so this shows the Kedah demo result instead of the point you chose.',
       'warn'
     );
   } else {
@@ -287,6 +320,78 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   renderCaveats(state.data.caveats || []);
   refreshOpenScreens();
   await renderReveal(state.data, id);
+}
+
+// ---------- Typed coordinates and Malaysian presets ----------
+
+// Accepts "6.12", "-6.12", "6,12", "6.12 N" or "6.12°S". Returns a number or null.
+function parseCoord(text, positive, negative) {
+  let t = String(text).trim().toUpperCase().replace(/\u2212/g, '-').replace(/°/g, '').replace(',', '.');
+  let sign = 1;
+  const suffix = t.match(/\s*([NSEW])$/);
+  if (suffix) {
+    if (![positive, negative].includes(suffix[1])) return null;
+    if (suffix[1] === negative) sign = -1;
+    t = t.slice(0, suffix.index).trim();
+    if (t.startsWith('-')) return null; // "-6 S" is ambiguous
+  }
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  return sign * Number(t);
+}
+
+function syncFieldInputs(lat, lon) {
+  document.getElementById('field-lat').value = String(lat);
+  document.getElementById('field-lon').value = String(lon);
+  const preset = document.getElementById('field-preset');
+  const match = MALAYSIA_PRESETS.findIndex(p => p.lat === lat && p.lon === lon);
+  preset.value = match >= 0 ? String(match) : '';
+  setFieldError(null);
+}
+
+function setFieldError(message, input) {
+  const error = document.getElementById('field-error');
+  error.textContent = message || '';
+  for (const id of ['field-lat', 'field-lon']) {
+    const el = document.getElementById(id);
+    if (el === input) el.setAttribute('aria-invalid', 'true');
+    else el.removeAttribute('aria-invalid');
+  }
+  if (input) input.focus();
+}
+
+function initFieldForm() {
+  const form = document.getElementById('field-form');
+  const preset = document.getElementById('field-preset');
+  const latInput = document.getElementById('field-lat');
+  const lonInput = document.getElementById('field-lon');
+
+  MALAYSIA_PRESETS.forEach((p, i) => preset.add(new Option(p.name, String(i))));
+
+  preset.addEventListener('change', () => {
+    const p = MALAYSIA_PRESETS[Number(preset.value)];
+    if (!p || preset.value === '') return;
+    selectField(p.lat, p.lon, { fromClick: true });
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const lat = parseCoord(latInput.value, 'N', 'S');
+    const lon = parseCoord(lonInput.value, 'E', 'W');
+    if (lat === null || lat < -90 || lat > 90) {
+      setFieldError('Latitude must be a number from −90 to 90 (north is positive).', latInput);
+      return;
+    }
+    if (lon === null || lon < -180 || lon > 180) {
+      setFieldError('Longitude must be a number from −180 to 180 (east is positive).', lonInput);
+      return;
+    }
+    selectField(Number(lat.toFixed(4)), Number(lon.toFixed(4)), { fromClick: true });
+  });
+
+  // Clear the error as soon as the user edits the field.
+  [latInput, lonInput].forEach(el => el.addEventListener('input', () => {
+    if (el.getAttribute('aria-invalid')) setFieldError(null);
+  }));
 }
 
 // ---------- Screen 1: The Reveal (cannot be cut) ----------
@@ -334,6 +439,7 @@ async function renderReveal(data, id) {
     <p class="reveal-detail">Climate match: ${pct(twin.match_score)}%</p>
   `;
   resultText.classList.add('is-visible');
+  setExportReady(true);
 }
 
 async function mapReveal(data, token) {
@@ -463,7 +569,11 @@ function initGlobe() {
   const el = document.getElementById('globe-view');
   let globe;
   try {
-    globe = Globe({ animateIn: !prefersReducedMotion })(el)
+    globe = Globe({
+      animateIn: !prefersReducedMotion,
+      // Keep the last frame readable so "Download image" can copy it.
+      rendererConfig: { antialias: true, alpha: true, preserveDrawingBuffer: true }
+    })(el)
       .backgroundColor('rgba(0, 0, 0, 0)')   // let the galaxy show through
       .showAtmosphere(true)
       .atmosphereColor('#7fdcff')
@@ -712,6 +822,89 @@ function renderHonestyPanel(data) {
     `;
     tbody.appendChild(row);
   }
+
+  renderRadar(data);
+}
+
+// ---------- Radar chart (Compare climates) ----------
+
+const RADAR_SERIES = [
+  { key: 'now', label: 'Your field today', color: '46, 158, 91', dash: [6, 4] },
+  { key: '2045', label: 'Your field in 2045', color: '232, 137, 12', dash: [] },
+  { key: 'twin', label: 'Twin today', color: '214, 40, 57', dash: [] }
+];
+
+// Puts a value on its spoke's 0–1 scale, clamped so outliers stay on the chart.
+function radarScale(key, value) {
+  if (typeof value !== 'number') return null;
+  const [lo, hi] = RADAR_RANGES[key];
+  return Math.min(1, Math.max(0, (value - lo) / (hi - lo)));
+}
+
+function renderRadar(data) {
+  const keys = Object.keys(SIGNATURES);
+  const sources = { now: data.signature_now, '2045': data.signature_2045, twin: data.twin.signature };
+  const datasets = RADAR_SERIES.map(series => {
+    const raw = keys.map(k => (sources[series.key] || {})[k]);
+    return {
+      label: series.label,
+      raw,                                   // real values, for the tooltip
+      data: keys.map((k, i) => radarScale(k, raw[i])),
+      borderColor: `rgb(${series.color})`,
+      backgroundColor: `rgba(${series.color}, 0.14)`,
+      borderDash: series.dash,
+      borderWidth: 2.5,
+      pointBackgroundColor: `rgb(${series.color})`,
+      pointRadius: 3.5,
+      pointHoverRadius: 7
+    };
+  });
+
+  if (state.radar) {
+    state.radar.data.datasets = datasets;
+    state.radar.update();
+    return;
+  }
+
+  const ink = '#0b2545';
+  state.radar = new Chart(document.getElementById('radar-chart'), {
+    type: 'radar',
+    data: {
+      // Short spoke labels; the table has the full names.
+      labels: ['Mean temp', 'Growing degree days', 'Rainfall', 'Wet season share',
+        'Longest dry spell', 'Heat stress days', 'Solar radiation', 'Coldest month'],
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1,
+      animation: prefersReducedMotion ? false : { duration: 900 },
+      scales: {
+        r: {
+          min: 0,
+          max: 1,
+          ticks: { display: false, stepSize: 0.25 },
+          grid: { color: 'rgba(11, 37, 69, 0.15)' },
+          angleLines: { color: 'rgba(11, 37, 69, 0.2)' },
+          pointLabels: { color: ink, font: { size: 13, weight: '600' } }
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { color: ink, font: { size: 13 }, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const key = keys[ctx.dataIndex];
+              const digits = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 }[key] ?? 1;
+              return `${ctx.dataset.label}: ${fmt(ctx.dataset.raw[ctx.dataIndex], digits)}`;
+            },
+            title: items => SIGNATURES[keys[items[0].dataIndex]].label
+          }
+        }
+      }
+    }
+  });
 }
 
 // ---------- Crop cards ----------
@@ -998,6 +1191,304 @@ function initStory() {
   });
 }
 
+// ---------- Download image and print report ----------
+
+const SNAPSHOT_W = 1200;
+const SNAPSHOT_H = 630;   // standard social-media preview size
+const SNAPSHOT_FONT = "'Avenir Next', Avenir, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+
+function setExportReady(ready) {
+  for (const id of ['download-image', 'print-report']) {
+    document.getElementById(id).disabled = !ready;
+  }
+}
+
+// Wraps text into lines that fit maxWidth. Returns the y after the last line.
+function drawWrapped(ctx, text, x, y, maxWidth, lineHeight) {
+  let line = '';
+  for (const word of String(text).split(/\s+/)) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, y);
+      line = word;
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, y);
+  return y + lineHeight;
+}
+
+function drawPin(ctx, x, y, color) {
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+}
+
+function canRead(canvas) {
+  try {
+    canvas.getContext('2d').getImageData(0, 0, 1, 1);
+    return true;
+  } catch {
+    return false; // a cross-origin image made the canvas unreadable
+  }
+}
+
+// The visible map tiles can't be copied into a picture unless the tile server
+// allows it (CORS). Re-request copies that ask for permission; if any copy
+// fails, return null and the picture is drawn without the map background.
+async function loadCorsTiles() {
+  const box = document.getElementById('map').getBoundingClientRect();
+  const tiles = [...document.querySelectorAll('#map img.leaflet-tile-loaded')];
+  const loaded = await Promise.all(tiles.map(tile => new Promise(resolve => {
+    const r = tile.getBoundingClientRect();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => resolve(null), 4000);
+    img.onload = () => { clearTimeout(timer); resolve({ img, x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }); };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
+    img.src = tile.src;
+  })));
+  return loaded.length && loaded.every(Boolean) ? loaded : null;
+}
+
+// Draws the current globe or flat map into a canvas the size of its box,
+// with pins (and on the flat map, the arc) drawn on top.
+function captureView(data, corsTiles) {
+  const { field, twin } = data;
+  const el = document.getElementById(state.view === 'globe' ? 'globe-view' : 'map');
+  const w = el.clientWidth;
+  const h = el.clientHeight;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d');
+  let tilesIncluded = true;
+  const pins = [];
+
+  if (state.view === 'globe') {
+    ctx.drawImage(state.globe.renderer().domElement, 0, 0, w, h);
+    if (!canRead(out)) {
+      ctx.clearRect(0, 0, w, h);
+      tilesIncluded = false;
+    }
+    for (const [p, color] of [[field, '#2ed573'], [twin, '#ff6b6b']]) {
+      const c = state.globe.getScreenCoords(p.lat, p.lon, 0.01);
+      if (c) { drawPin(ctx, c.x, c.y, color); pins.push(c); }
+    }
+  } else {
+    const map = state.revealMap;
+    if (corsTiles) {
+      ctx.fillStyle = '#aad3df'; // OpenStreetMap's sea colour
+      ctx.fillRect(0, 0, w, h);
+      corsTiles.forEach(t => ctx.drawImage(t.img, t.x, t.y, t.w, t.h));
+    }
+    if (!corsTiles || !canRead(out)) {
+      ctx.fillStyle = '#16325c';
+      ctx.fillRect(0, 0, w, h);
+      tilesIncluded = false;
+    }
+    const pts = arcPoints([field.lat, field.lon], [twin.lat, twin.lon])
+      .map(p => map.latLngToContainerPoint(p));
+    ctx.setLineDash([10, 10]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const a = map.latLngToContainerPoint([field.lat, field.lon]);
+    const b = map.latLngToContainerPoint([twin.lat, twin.lon]);
+    drawPin(ctx, a.x, a.y, '#2ed573');
+    drawPin(ctx, b.x, b.y, '#ff6b6b');
+    pins.push(a, b);
+  }
+  // Centre of the pins, so the picture can be cropped around them.
+  const focus = pins.length
+    ? { x: pins.reduce((t, p) => t + p.x, 0) / pins.length, y: pins.reduce((t, p) => t + p.y, 0) / pins.length }
+    : { x: w / 2, y: h / 2 };
+  return { canvas: out, tilesIncluded, focus };
+}
+
+// Builds a 1200×630 summary card: the map on the left, the result on the right.
+function composeSnapshot(data, corsTiles = null) {
+  const { field, twin, twin_1995: past } = data;
+  const canvas = document.createElement('canvas');
+  canvas.width = SNAPSHOT_W;
+  canvas.height = SNAPSHOT_H;
+  const ctx = canvas.getContext('2d');
+
+  // Space background with a few stars
+  const bg = ctx.createLinearGradient(0, 0, SNAPSHOT_W, SNAPSHOT_H);
+  bg.addColorStop(0, '#060824');
+  bg.addColorStop(1, '#0d1a40');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SNAPSHOT_W, SNAPSHOT_H);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  for (let i = 0; i < 90; i++) {
+    ctx.fillRect((i * 389) % SNAPSHOT_W, (i * 241) % SNAPSHOT_H, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+  }
+
+  // Map panel: crop the view to fill the box ("cover")
+  const px = 36, py = 36, pw = 640, ph = SNAPSHOT_H - 72;
+  const { canvas: view, tilesIncluded, focus } = captureView(data, corsTiles);
+  const scale = Math.max(pw / view.width, ph / view.height);
+  const sw = pw / scale, sh = ph / scale;
+  // Crop around the pins, but never past the edge of the view.
+  const sx = Math.min(view.width - sw, Math.max(0, focus.x - sw / 2));
+  const sy = Math.min(view.height - sh, Math.max(0, focus.y - sh / 2));
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 18);
+  ctx.clip();
+  ctx.fillStyle = '#02030c';
+  ctx.fillRect(px, py, pw, ph);
+  ctx.drawImage(view, sx, sy, sw, sh, px, py, pw, ph);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(127, 220, 255, 0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 18);
+  ctx.stroke();
+
+  // Text panel
+  const tx = 716, tw = SNAPSHOT_W - tx - 40;
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#9ff0c8';
+  ctx.font = `800 26px ${SNAPSHOT_FONT}`;
+  ctx.fillText('CLIMATE TWIN', tx, 48);
+
+  ctx.fillStyle = '#e8eefc';
+  ctx.font = `500 26px ${SNAPSHOT_FONT}`;
+  let y = drawWrapped(ctx, `${field.name} in 2045 is`, tx, 104, tw, 34);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `800 44px ${SNAPSHOT_FONT}`;
+  y = drawWrapped(ctx, twin.place, tx, y + 2, tw, 50);
+  ctx.fillStyle = '#e8eefc';
+  ctx.font = `500 26px ${SNAPSHOT_FONT}`;
+  y = drawWrapped(ctx, 'today.', tx, y, tw, 34);
+
+  ctx.fillStyle = '#ffd166';
+  ctx.font = `700 24px ${SNAPSHOT_FONT}`;
+  y = drawWrapped(ctx, `Climate match: ${pct(twin.match_score)}%`, tx, y + 14, tw, 32);
+
+  ctx.fillStyle = '#c9d6f5';
+  ctx.font = `400 19px ${SNAPSHOT_FONT}`;
+  const lines = [
+    `Field: ${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}`,
+    `Twin: ${twin.lat.toFixed(2)}, ${twin.lon.toFixed(2)} · ${twin.distance_km ?? '?'} km away`
+  ];
+  if (past && typeof past.drift_km === 'number') {
+    lines.push(`Already moved ${past.drift_km} km in climate terms since 1995`);
+  }
+  const crops = (data.crops_there || []).map(c => c.name).filter(Boolean);
+  if (crops.length) lines.push(`Grown there today: ${crops.slice(0, 4).join(', ')}`);
+  for (const line of lines) y = drawWrapped(ctx, line, tx, y + 6, tw, 26);
+
+  ctx.fillStyle = 'rgba(201, 214, 245, 0.75)';
+  ctx.font = `400 15px ${SNAPSHOT_FONT}`;
+  const date = new Date().toISOString().slice(0, 10);
+  let foot = drawWrapped(ctx,
+    'Data: NASA POWER, ~50 km grid. Linear trend, not a forecast. Check with a local agricultural adviser.',
+    tx, SNAPSHOT_H - 104, tw, 20);
+  drawWrapped(ctx, `Made ${date}${tilesIncluded ? '' : ' · map background not included'}`, tx, foot, tw, 20);
+  return canvas;
+}
+
+function snapshotFilename(data) {
+  const place = String(data.twin.place || 'twin').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `climate-twin-${place}-${new Date().toISOString().slice(0, 10)}.png`;
+}
+
+async function snapshotNow() {
+  const tiles = state.view === 'map' ? await loadCorsTiles() : null;
+  return composeSnapshot(state.data, tiles);
+}
+
+async function downloadImage() {
+  if (!state.data) return;
+  const button = document.getElementById('download-image');
+  button.disabled = true;
+  const canvas = await snapshotNow();
+  button.disabled = !state.data;
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = snapshotFilename(state.data);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
+}
+
+// Before printing: put the snapshot at the top and open every screen so the
+// report has everything. Afterwards, put the screens back as they were.
+const printState = { prepared: false, wasOpen: [] };
+
+// snapshot is passed in by the Print button; Ctrl/Cmd+P can't wait, so it
+// builds one straight away (flat map drawn without its background).
+function prepareForPrint(snapshot) {
+  if (printState.prepared || !state.data) return;
+  printState.prepared = true;
+  const { field, twin } = state.data;
+  const canvas = snapshot instanceof HTMLCanvasElement ? snapshot : composeSnapshot(state.data);
+  document.getElementById('print-snapshot').src = canvas.toDataURL('image/png');
+  document.getElementById('print-meta').textContent =
+    `${field.name} (${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}). Climate twin: ${twin.place}. ` +
+    (state.live
+      ? 'Live result from the Climate Twin engine. '
+      : 'Demo data: the engine was not connected, so this is the example result. ') +
+    `Printed ${new Date().toLocaleString()}.`;
+
+  printState.wasOpen = [...document.querySelectorAll('.optional')].filter(s => !s.hidden).map(s => s.id);
+  document.body.classList.add('printing');
+  document.querySelectorAll('.optional').forEach(section => {
+    section.hidden = false;
+    section.classList.add('is-visible');
+    renderScreen(section.id);
+  });
+  // Chart.js doesn't resize for print by itself; give the radar its paper size
+  // (matches .radar-panel's print width minus padding; square, like on screen).
+  if (state.radar) state.radar.resize(528, 528);
+}
+
+function restoreAfterPrint() {
+  if (!printState.prepared) return;
+  printState.prepared = false;
+  document.body.classList.remove('printing');
+  if (state.radar) state.radar.resize(); // back to fitting its box
+  document.querySelectorAll('.optional').forEach(section => {
+    if (!printState.wasOpen.includes(section.id)) {
+      section.classList.remove('is-visible');
+      section.hidden = true;
+    }
+  });
+}
+
+async function printReport() {
+  if (!state.data) return;
+  prepareForPrint(await snapshotNow());
+  const img = document.getElementById('print-snapshot');
+  try { await img.decode(); } catch { /* print anyway */ }
+  window.print();
+}
+
+function initExport() {
+  document.getElementById('download-image').addEventListener('click', downloadImage);
+  document.getElementById('print-report').addEventListener('click', printReport);
+  // Also handle Ctrl/Cmd+P from the browser menu.
+  window.addEventListener('beforeprint', prepareForPrint);
+  window.addEventListener('afterprint', restoreAfterPrint);
+}
+
 // ---------- Animated scene backgrounds ----------
 
 // Fills each .particles container with decorative pieces. Every piece gets
@@ -1059,6 +1550,8 @@ function init() {
   initScenes();
   initRevealMap();   // create the flat map while its box is still visible
   initViews();       // then add the 3D globe and pick the starting view
+  initFieldForm();
+  initExport();
   initToggles();
   initStory();
   selectField(DEMO_FIELD.lat, DEMO_FIELD.lon);

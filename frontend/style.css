@@ -194,11 +194,129 @@ main {
 
 /* ---------- Globe / flat map switch ---------- */
 
+/* Row above the map: field picker on the left, globe/map switch on the right */
+.reveal-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .view-switch {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-left: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Field picker: preset list + typed coordinates ---------- */
+
+.field-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(6, 10, 35, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(127, 220, 255, 0.25);
+}
+
+.field-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field-form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #b9c9f5;
+}
+
+.field-form input,
+.field-form select {
+  font: inherit;
+  font-size: 1rem;
+  color: #f1f5ff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(185, 201, 245, 0.35);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.field-form input {
+  width: 7.5rem;
+}
+
+.field-form select {
+  max-width: 19rem;
+}
+
+.field-form select option {
+  color: #111;
+}
+
+.field-form input:focus,
+.field-form select:focus {
+  outline: none;
+  border-color: #7fdcff;
+  background: rgba(127, 220, 255, 0.12);
+}
+
+.field-form input[aria-invalid="true"] {
+  border-color: #ff8a7a;
+  background: rgba(255, 138, 122, 0.12);
+}
+
+/* NASA red, darkened so white text passes contrast */
+.field-go {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: #c7290f;
+  border: 2px solid #ff6a4d;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.15s;
+}
+
+.field-go:hover {
+  background: #a82009;
+  transform: translateY(-1px);
+}
+
+.field-go:focus-visible {
+  outline: 3px solid #7fdcff;
+  outline-offset: 2px;
+}
+
+.field-error {
+  flex-basis: 100%;
+  min-height: 0;
+  color: #ffb4a8;
+  font-size: 0.95rem;
+}
+
+.field-error:empty {
+  display: none;
 }
 
 .view-switch[hidden] {
@@ -479,6 +597,41 @@ main {
 
 .leaflet-tooltip-top.ct-tooltip::before {
   border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* ---------- Download / print buttons ---------- */
+
+.result-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.action-btn {
+  font: inherit;
+  font-size: 1rem;
+  color: #e8f6ff;
+  background: rgba(6, 10, 35, 0.75);
+  border: 2px solid rgba(127, 220, 255, 0.55);
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.15s, opacity 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: rgba(127, 220, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.action-btn:focus-visible {
+  outline: 3px solid #7fdcff;
+  outline-offset: 2px;
+}
+
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ---------- Show/hide buttons ---------- */
@@ -1587,6 +1740,167 @@ body.story-active {
 @keyframes aurora-wave {
   from { transform: translateX(-7%) skewX(-18deg) scaleY(0.75); opacity: 0.55; }
   to   { transform: translateX(7%)  skewX(14deg)  scaleY(1.15); opacity: 0.95; }
+}
+
+/* ---------- Compare climates: radar next to the table ---------- */
+
+.compare-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 430px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 920px) {
+  .compare-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.radar-panel {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.radar-panel figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #13315c;
+}
+
+/* ---------- Print report ---------- */
+
+.print-header {
+  display: none;
+}
+
+@media print {
+  @page { margin: 14mm; }
+
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    padding: 0 !important;
+  }
+
+  /* The snapshot replaces the live map; controls and decoration are hidden. */
+  .cosmos, .hero, #status, #reveal, #screen-toggles, .story-bar, .scene,
+  .sig-tip, .info, .crop-empty:empty, .screen-only {
+    display: none !important;
+  }
+
+  .print-header {
+    display: block;
+    margin-bottom: 1.25rem;
+  }
+
+  .print-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.3rem;
+  }
+
+  #print-meta {
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+  }
+
+  #print-snapshot {
+    width: 100%;
+    border-radius: 8px;
+  }
+
+  main {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.printing .optional {
+    display: block !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .themed {
+    background: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    margin-bottom: 1.5rem;
+    break-inside: avoid;
+  }
+
+  .themed, .themed *, #caveats, #caveats * {
+    color: #111 !important;
+  }
+
+  #signature-table,
+  .radar-panel,
+  .crop-card {
+    background: #fff !important;
+    backdrop-filter: none !important;
+  }
+
+  #signature-table th,
+  #signature-table td {
+    border-bottom: 1px solid #bbb !important;
+  }
+
+  /* Radar above the table, large enough for its labels */
+  .compare-layout {
+    display: block;
+  }
+
+  .radar-panel {
+    width: 560px;
+    max-width: 100%;
+    margin: 0 auto 1rem;
+    break-inside: avoid;
+  }
+
+  #radar-chart {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .crop-card {
+    border: 1px solid #999 !important;
+    transform: none !important;
+  }
+
+  /* Show link addresses on paper */
+  .crop-source::after {
+    content: " (" attr(href) ")";
+    word-break: break-all;
+  }
+
+  #drift-map {
+    height: 320px;
+    border: 1px solid #999 !important;
+  }
+
+  #drift-text {
+    background: none !important;
+    padding: 0 !important;
+  }
+
+  #caveats {
+    background: none !important;
+    backdrop-filter: none !important;
+    border-left: 4px solid #c00;
+    break-inside: avoid;
+  }
 }
 
 /* ---------- Respect "reduce motion" system setting ---------- */
