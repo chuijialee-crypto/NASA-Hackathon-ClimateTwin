@@ -1,0 +1,142 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+}
+
+header {
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+header h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tagline {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+main {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.screen {
+  margin-bottom: 3rem;
+}
+
+.screen h2 {
+  margin-bottom: 1rem;
+}
+
+/* Anchor the overlay to the map section, not the page. */
+#reveal {
+  position: relative;
+}
+
+#map {
+  height: 600px;
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+#result-text {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.85);
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 1000;
+  max-width: 90%;
+}
+
+.reveal-headline {
+  font-size: 1.8rem;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.reveal-detail {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+/* Honesty panel */
+#signature-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.1rem;
+}
+
+#signature-table th,
+#signature-table td {
+  padding: 0.75rem 1rem;
+  text-align: right;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#signature-table th:first-child,
+#signature-table td:first-child {
+  text-align: left;
+}
+
+#signature-table th {
+  color: #a5b4fc;
+}
+
+/* Drift */
+#drift-map {
+  height: 450px;
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+#drift-text {
+  font-size: 1.3rem;
+}
+
+/* Viability chart */
+#viability-chart {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+#caveats {
+  margin-top: 3rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 4px solid #ff6b6b;
+  border-radius: 4px;
+}
+
+#caveats h3 {
+  margin-bottom: 1rem;
+  color: #ff6b6b;
+}
+
+#caveat-list {
+  list-style: disc;
+  margin-left: 1.5rem;
+}
+
+#caveat-list li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
