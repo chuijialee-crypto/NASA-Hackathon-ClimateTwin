@@ -6,7 +6,7 @@
   "reveal": {
     "headline_template": "Your field in 2045 is {twin_place} today.",
     "headline_example": "Your field in 2045 is Central Thailand today.",
-    "subline": "That place exists. People farm it now. Here are the crops suited to its climate.",
+    "subline": "That place exists. People farm it now. Here is what they grow.",
     "field_label": "Your field",
     "twin_label": "Climate twin (today)"
   },
@@ -48,8 +48,10 @@
   },
 
   "crops_there": {
-    "title": "Crops suited to {twin_place}'s climate",
-    "subline": "Crops suited to the twin's climate, with their tolerance sources."
+    "title": "What they already grow there",
+    "subline": "Crops suited to the twin's climate. Every crop is checked against the FAO ECOCROP database.",
+    "source_link_label": "View FAO ECOCROP source",
+    "source_link_note": "Each crop's climate tolerances trace back to its official FAO ECOCROP entry (ecocrop_id)."
   },
 
   "buttons": {
@@ -81,6 +83,6 @@
     ]
   },
 
-  "data_credit": "Climate data: NASA POWER. Crop tolerances: FAO ECOCROP.",
+  "data_credit": "Climate data: NASA POWER. Crop tolerances: FAO ECOCROP (all 18 crops individually verified).",
   "ai_disclosure": "Built with Kiro, Amazon's AI coding tool, as disclosed under NASA Space Apps rules."
 }

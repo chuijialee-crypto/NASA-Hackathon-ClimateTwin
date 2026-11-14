@@ -1,0 +1,10 @@
+{
+  "mean_temp": 2.0,
+  "gdd": 1.5,
+  "rain_mm": 2.0,
+  "wet_share": 1.5,
+  "dry_spell_days": 1.5,
+  "heat_days": 1.5,
+  "solar": 1.0,
+  "cold_month": 1.0
+}

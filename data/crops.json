@@ -7,7 +7,8 @@
     "max_heat_days": 60,
     "min_cold_month_c": 18,
     "note": "Staple wetland cereal. Needs standing water and warm nights; grain-filling fails above ~35C at flowering.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=2234"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1574
   },
   {
     "name": "Maize",
@@ -17,7 +18,8 @@
     "max_heat_days": 70,
     "min_cold_month_c": 13,
     "note": "Warm-season cereal, base temp 10C. Drought-sensitive at tasselling; heat above 35C aborts pollen.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1562"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 2175
   },
   {
     "name": "Cassava",
@@ -27,7 +29,8 @@
     "max_heat_days": 120,
     "min_cold_month_c": 18,
     "note": "Drought-hardy tropical root crop. Very wide rainfall tolerance; frost-free year-round required.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1458"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1420
   },
   {
     "name": "Groundnut",
@@ -37,7 +40,8 @@
     "max_heat_days": 90,
     "min_cold_month_c": 15,
     "note": "Legume (peanut). Tolerates heat and semi-arid conditions; waterlogging rots the pods.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1041"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 2199
   },
   {
     "name": "Sweet potato",
@@ -47,7 +51,8 @@
     "max_heat_days": 90,
     "min_cold_month_c": 15,
     "note": "Tropical root crop, frost-sensitive. Reliable smallholder staple on marginal soils.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1517"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1265
   },
   {
     "name": "Soybean",
@@ -57,7 +62,8 @@
     "max_heat_days": 60,
     "min_cold_month_c": 13,
     "note": "Oilseed legume. Sensitive to heat at flowering and to both drought and waterlogging.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1280"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1150
   },
   {
     "name": "Mung bean",
@@ -67,7 +73,8 @@
     "max_heat_days": 90,
     "min_cold_month_c": 16,
     "note": "Short-cycle legume (~65 days). Heat-tolerant, good as a dry-season catch crop.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=2518"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 2150
   },
   {
     "name": "Sorghum",
@@ -77,7 +84,8 @@
     "max_heat_days": 120,
     "min_cold_month_c": 15,
     "note": "Drought-tolerant cereal. A leading fallback crop as conditions get hotter and drier.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1280"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1982
   },
   {
     "name": "Pearl millet",
@@ -87,7 +95,8 @@
     "max_heat_days": 150,
     "min_cold_month_c": 15,
     "note": "The most drought- and heat-hardy cereal here. Grows where sorghum and maize fail.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1526"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 8418
   },
   {
     "name": "Chilli",
@@ -97,7 +106,8 @@
     "max_heat_days": 80,
     "min_cold_month_c": 15,
     "note": "High-value vegetable. Flowers drop above ~35C; needs irrigation in dry spells.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1098"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 621
   },
   {
     "name": "Pineapple",
@@ -107,7 +117,8 @@
     "max_heat_days": 120,
     "min_cold_month_c": 18,
     "note": "Tropical perennial, CAM photosynthesis so very water-efficient. No frost tolerance.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1040"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 402
   },
   {
     "name": "Banana",
@@ -117,7 +128,8 @@
     "max_heat_days": 90,
     "min_cold_month_c": 20,
     "note": "Tropical perennial needing steady moisture and warmth. Wind and cold both damage it.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1485"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1503
   },
   {
     "name": "Oil palm",
@@ -127,7 +139,8 @@
     "max_heat_days": 90,
     "min_cold_month_c": 20,
     "note": "Humid-tropic plantation perennial. Needs high rainfall spread evenly across the year.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1532"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 972
   },
   {
     "name": "Rubber",
@@ -137,7 +150,8 @@
     "max_heat_days": 80,
     "min_cold_month_c": 20,
     "note": "Humid-tropic plantation tree. Long dry spells reduce latex flow; no frost tolerance.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1374"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 1212
   },
   {
     "name": "Durian",
@@ -147,7 +161,8 @@
     "max_heat_days": 80,
     "min_cold_month_c": 22,
     "note": "Tropical fruit tree, very narrow climate window. Needs high heat, high humidity, no frost.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1465"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 963
   },
   {
     "name": "Jackfruit",
@@ -156,8 +171,9 @@
     "rain_max_mm": 3000,
     "max_heat_days": 100,
     "min_cold_month_c": 18,
-    "note": "Hardy tropical fruit tree. More heat- and drought-tolerant than durian; frost-sensitive.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1500"
+    "note": "Hardy tropical fruit tree. Wider climate range than durian; frost-sensitive. Poor drought and flooding tolerance.",
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 459
   },
   {
     "name": "Pigeon pea",
@@ -167,7 +183,8 @@
     "max_heat_days": 120,
     "min_cold_month_c": 15,
     "note": "Deep-rooted perennial legume. Very drought-tolerant; fixes nitrogen, good for poor soils.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1360"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 576
   },
   {
     "name": "Taro",
@@ -177,6 +194,7 @@
     "max_heat_days": 70,
     "min_cold_month_c": 18,
     "note": "Wetland root crop, thrives in waterlogged soils like rice. Needs high, reliable rainfall.",
-    "source": "https://ecocrop.review.fao.org/ecocrop/srv/en/dataSheet?id=1127"
+    "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+    "ecocrop_id": 758
   }
 ]

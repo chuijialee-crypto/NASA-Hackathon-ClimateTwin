@@ -41,6 +41,11 @@
       "cold_month": 26.5
     }
   },
+  "twin_now": {
+    "lat": 6.0,
+    "lon": 100.0,
+    "place": "Kedah, Malaysia"
+  },
   "twin_1995": {
     "lat": 5.4,
     "lon": 100.3,
@@ -54,6 +59,7 @@
       "source": "https://www.fao.org/ecocrop"
     }
   ],
+  "current_crop": "Paddy rice",
   "current_crop_viability": [
     {"year": 2025, "score": 0.82},
     {"year": 2030, "score": 0.74},
