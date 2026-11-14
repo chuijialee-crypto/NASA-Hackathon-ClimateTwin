@@ -1,0 +1,134 @@
+{
+  "field": {
+    "lat": 6.12,
+    "lon": 100.37,
+    "name": "Kedah padi field"
+  },
+  "signature_now": {
+    "mean_temp": 26.58,
+    "gdd": 6055.15,
+    "rain_mm": 2507.67,
+    "wet_share": 0.39,
+    "dry_spell_days": 19.2,
+    "heat_days": 0.6,
+    "solar": 18.15,
+    "cold_month": 25.61
+  },
+  "signature_2045": {
+    "mean_temp": 26.92,
+    "gdd": 6180.36,
+    "rain_mm": 2839.24,
+    "wet_share": 0.42,
+    "dry_spell_days": 18.16,
+    "heat_days": 0.0,
+    "solar": 17.39,
+    "cold_month": 25.55
+  },
+  "twin": {
+    "lat": 12.5,
+    "lon": 124.5,
+    "place": "Bicol, Philippines",
+    "distance_km": 2739,
+    "match_score": 0.8,
+    "signature": {
+      "mean_temp": 27.13,
+      "gdd": 6257.45,
+      "rain_mm": 2810.2,
+      "wet_share": 0.41,
+      "dry_spell_days": 12.6,
+      "heat_days": 1.4,
+      "solar": 18.16,
+      "cold_month": 25.55
+    }
+  },
+  "twin_now": {
+    "lat": 8.0,
+    "lon": 99.0,
+    "place": "Southern Thailand (Andaman coast)"
+  },
+  "twin_1995": {
+    "lat": 5.0,
+    "lon": 97.5,
+    "place": "Aceh, Indonesia",
+    "drift_km": 372
+  },
+  "crops_there": [
+    {
+      "name": "Oil palm",
+      "note": "Humid-tropic plantation perennial. Needs high rainfall spread evenly across the year.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 1.0
+    },
+    {
+      "name": "Cassava",
+      "note": "Drought-hardy tropical root crop. Very wide rainfall tolerance; frost-free year-round required.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.99
+    },
+    {
+      "name": "Taro",
+      "note": "Wetland root crop, thrives in waterlogged soils like rice. Needs high, reliable rainfall.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.99
+    },
+    {
+      "name": "Durian",
+      "note": "Tropical fruit tree, very narrow climate window. Needs high heat, high humidity, no frost.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.99
+    },
+    {
+      "name": "Rubber",
+      "note": "Humid-tropic plantation tree. Long dry spells reduce latex flow; no frost tolerance.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.98
+    },
+    {
+      "name": "Paddy rice",
+      "note": "Staple wetland cereal. Needs standing water and warm nights; grain-filling fails above ~35C at flowering.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.9
+    },
+    {
+      "name": "Banana",
+      "note": "Tropical perennial needing steady moisture and warmth. Wind and cold both damage it.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.5
+    },
+    {
+      "name": "Jackfruit",
+      "note": "Hardy tropical fruit tree. Wider climate range than durian; frost-sensitive. Poor drought and flooding tolerance.",
+      "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/home",
+      "match_score": 0.38
+    }
+  ],
+  "current_crop": "Paddy rice",
+  "current_crop_viability": [
+    {
+      "year": 2025,
+      "score": 0.99
+    },
+    {
+      "year": 2030,
+      "score": 0.98
+    },
+    {
+      "year": 2035,
+      "score": 0.96
+    },
+    {
+      "year": 2040,
+      "score": 0.94
+    },
+    {
+      "year": 2045,
+      "score": 0.9
+    }
+  ],
+  "caveats": [
+    "NASA POWER is gridded climate data at roughly 50 km, not a measurement of this specific field.",
+    "We do not forecast weather, yield, or profit.",
+    "A linear trend is a simplifying assumption, not a climate projection.",
+    "Confirm any planting decision with a local agricultural adviser."
+  ]
+}
