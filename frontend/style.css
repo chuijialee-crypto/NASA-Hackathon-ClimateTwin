@@ -344,6 +344,126 @@ main {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* Farmer explanations on each signature row */
+.sig-row {
+  cursor: help;
+}
+
+.sig-row:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.sig-label {
+  position: relative;
+}
+
+.info {
+  margin-left: 0.35rem;
+  color: var(--accent);
+  opacity: 0.7;
+  font-size: 0.95em;
+}
+
+.sig-tip {
+  position: absolute;
+  left: 1rem;
+  bottom: calc(100% - 0.25rem);
+  z-index: 10;
+  width: max-content;
+  max-width: 340px;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: #0d0d1a;
+  border: 1px solid rgba(165, 180, 252, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  text-align: left;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  pointer-events: none;
+}
+
+.sig-tip-what {
+  display: block;
+  opacity: 0.8;
+  margin-bottom: 0.25rem;
+}
+
+.sig-tip-why {
+  display: block;
+  color: #ffd166;
+}
+
+.sig-row:hover .sig-tip,
+.sig-row:focus .sig-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.sig-row:hover .info,
+.sig-row:focus .info {
+  opacity: 1;
+}
+
+/* Crop cards */
+.crop-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.crop-card {
+  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(46, 213, 115, 0.14), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(46, 213, 115, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: card-in 0.45s ease both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+.crop-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--field);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.crop-name {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.crop-note {
+  line-height: 1.5;
+  margin-bottom: 0.9rem;
+}
+
+.crop-source {
+  color: var(--accent);
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.crop-source:hover,
+.crop-source:focus-visible {
+  text-decoration: underline;
+}
+
+.crop-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Drift */
 #drift-map {
   height: 450px;
@@ -386,6 +506,125 @@ main {
 #caveat-list li {
   margin-bottom: 0.5rem;
   line-height: 1.5;
+}
+
+/* ---------- Story mode ---------- */
+
+.toggle--story {
+  border-color: #ffd166;
+  color: #ffd166;
+}
+
+/* During the story the bottom bar drives the screens, so hide the toggles. */
+body.story-active .screen-toggles {
+  display: none;
+}
+
+/* Room so the fixed bar never covers the last screen. */
+body.story-active {
+  padding-bottom: 110px;
+}
+
+.story-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: min(760px, calc(100% - 2rem));
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: rgba(13, 13, 26, 0.95);
+  border: 1px solid rgba(165, 180, 252, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: bar-in 0.3s ease;
+}
+
+.story-bar[hidden] {
+  display: none;
+}
+
+.story-progress {
+  flex: 1;
+  text-align: center;
+}
+
+#story-label {
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+}
+
+.story-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.story-dots li {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.story-dots li.is-done {
+  background: var(--accent);
+}
+
+.story-dots li.is-current {
+  background: #ffd166;
+  transform: scale(1.3);
+}
+
+.story-btn {
+  font: inherit;
+  font-size: 1.05rem;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.15s, opacity 0.2s;
+}
+
+.story-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.story-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.story-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.story-btn--primary,
+.story-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+}
+
+.story-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.story-btn--exit {
+  padding: 0.55rem 0.8rem;
+}
+
+@keyframes bar-in {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* ---------- Respect "reduce motion" system setting ---------- */

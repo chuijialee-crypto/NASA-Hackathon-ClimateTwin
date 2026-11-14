@@ -32,6 +32,12 @@
 
     <!-- Buttons that show/hide the optional screens -->
     <nav id="screen-toggles" class="screen-toggles" aria-label="Optional screens">
+      <button type="button" id="story-start" class="toggle toggle--story">
+        ▶ Story mode
+      </button>
+      <button type="button" class="toggle" data-target="crops" aria-pressed="false" aria-controls="crops">
+        🌾 What grows there
+      </button>
       <button type="button" class="toggle" data-target="honesty-panel" aria-pressed="false" aria-controls="honesty-panel">
         📊 Compare climates
       </button>
@@ -43,10 +49,20 @@
       </button>
     </nav>
 
+    <!-- Crop cards: what is grown at the twin today (optional) -->
+    <section id="crops" class="screen optional" hidden>
+      <h2 id="crops-title">What Grows There Today</h2>
+      <p class="screen-intro">These crops already grow in the climate your field will have in 2045.</p>
+      <div id="crop-cards" class="crop-cards"></div>
+    </section>
+
     <!-- Screen 2: The Honesty Panel (optional) -->
     <section id="honesty-panel" class="screen optional" hidden>
       <h2>Climate Signatures</h2>
-      <p class="screen-intro">Your field's projected 2045 climate next to its twin's climate today.</p>
+      <p class="screen-intro">
+        Your field's projected 2045 climate next to its twin's climate today.
+        Hover over or tap a row to see why it matters to a farmer.
+      </p>
       <table id="signature-table">
         <!-- 8 rows: field-2045 vs twin-today -->
       </table>
@@ -73,6 +89,17 @@
       </ul>
     </aside>
   </main>
+
+  <!-- Story mode controls (shown only during story mode) -->
+  <div id="story-bar" class="story-bar" hidden role="region" aria-label="Story mode">
+    <button type="button" id="story-prev" class="story-btn">← Back</button>
+    <div class="story-progress">
+      <p id="story-label" aria-live="polite"></p>
+      <ol id="story-dots" class="story-dots" aria-hidden="true"></ol>
+    </div>
+    <button type="button" id="story-next" class="story-btn story-btn--primary">Next →</button>
+    <button type="button" id="story-exit" class="story-btn story-btn--exit" aria-label="Exit story mode">✕</button>
+  </div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/chartjs/chart.umd.js"></script>
