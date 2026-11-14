@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Climate Twin</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🌍 Climate Twin</h1>
+    <p class="tagline">Where is your farm going?</p>
+  </header>
+
+  <main>
+    <!-- Screen 1: The Reveal -->
+    <section id="reveal" class="screen">
+      <div id="map"></div>
+      <div id="result-text" class="overlay">
+        <!-- e.g., "Your field in 2045 is Central Thailand today." -->
+      </div>
+    </section>
+
+    <!-- Screen 2: The Honesty Panel (optional) -->
+    <section id="honesty-panel" class="screen" style="display: none;">
+      <h2>Climate Signatures</h2>
+      <table id="signature-table">
+        <!-- 8 rows: field-2045 vs twin-today -->
+      </table>
+    </section>
+
+    <!-- Screen 3: The Drift (optional) -->
+    <section id="drift" class="screen" style="display: none;">
+      <h2>Your Field Has Already Moved</h2>
+      <div id="drift-map"></div>
+      <p id="drift-text"></p>
+    </section>
+
+    <!-- Screen 4: Viability Curve (optional) -->
+    <section id="viability" class="screen" style="display: none;">
+      <h2>Current Crop Viability</h2>
+      <canvas id="viability-chart"></canvas>
+    </section>
+
+    <!-- Caveats — always visible -->
+    <aside id="caveats">
+      <h3>Important Notes</h3>
+      <ul id="caveat-list">
+        <!-- populated from contract.caveats -->
+      </ul>
+    </aside>
+  </main>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/chartjs/chart.umd.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
