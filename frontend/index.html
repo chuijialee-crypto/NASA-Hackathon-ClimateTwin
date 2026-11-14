@@ -49,29 +49,43 @@
       <button type="button" id="story-start" class="toggle toggle--story">
         ▶ Story mode
       </button>
-      <button type="button" class="toggle" data-target="crops" aria-pressed="false" aria-controls="crops">
+      <button type="button" class="toggle toggle--crops" data-target="crops" aria-pressed="false" aria-controls="crops">
         🌾 What grows there
       </button>
-      <button type="button" class="toggle" data-target="honesty-panel" aria-pressed="false" aria-controls="honesty-panel">
+      <button type="button" class="toggle toggle--compare" data-target="honesty-panel" aria-pressed="false" aria-controls="honesty-panel">
         📊 Compare climates
       </button>
-      <button type="button" class="toggle" data-target="drift" aria-pressed="false" aria-controls="drift">
+      <button type="button" class="toggle toggle--drift" data-target="drift" aria-pressed="false" aria-controls="drift">
         🧭 See the drift
       </button>
-      <button type="button" class="toggle" data-target="viability" aria-pressed="false" aria-controls="viability">
+      <button type="button" class="toggle toggle--viability" data-target="viability" aria-pressed="false" aria-controls="viability">
         📉 Crop viability
       </button>
     </nav>
 
     <!-- Crop cards: what is grown at the twin today (optional) -->
-    <section id="crops" class="screen optional" hidden>
+    <section id="crops" class="screen optional themed theme-paddy" hidden>
+      <!-- Scene: sunrise over rice paddies -->
+      <div class="scene" aria-hidden="true">
+        <div class="sun"></div>
+        <svg class="hill hill--far" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 110 C 160 50 320 60 470 105 S 760 150 920 95 S 1110 70 1200 100 V200 H0 Z"/></svg>
+        <svg class="hill hill--mid" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 140 C 220 95 360 115 520 145 S 820 175 1010 125 S 1150 115 1200 135 V200 H0 Z"/></svg>
+        <svg class="hill hill--near" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 165 C 260 140 420 150 600 168 S 950 185 1200 160 V200 H0 Z"/></svg>
+        <div class="particles rice-row" data-particle="stalk" data-count="70"></div>
+      </div>
       <h2 id="crops-title">What Grows There Today</h2>
       <p class="screen-intro">These crops already grow in the climate your field will have in 2045.</p>
       <div id="crop-cards" class="crop-cards"></div>
     </section>
 
     <!-- Screen 2: The Honesty Panel (optional) -->
-    <section id="honesty-panel" class="screen optional" hidden>
+    <section id="honesty-panel" class="screen optional themed theme-sky" hidden>
+      <!-- Scene: open sky with drifting clouds over blue mountains -->
+      <div class="scene" aria-hidden="true">
+        <div class="particles" data-particle="cloud" data-count="7"></div>
+        <svg class="hill hill--far" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 130 L120 80 L210 115 L330 45 L450 110 L560 70 L680 120 L800 55 L930 105 L1040 65 L1200 115 V200 H0 Z"/></svg>
+        <svg class="hill hill--near" viewBox="0 0 1200 200" preserveAspectRatio="none"><path d="M0 160 L150 120 L280 150 L420 105 L560 155 L700 125 L860 160 L1000 118 L1200 150 V200 H0 Z"/></svg>
+      </div>
       <h2>Climate Signatures</h2>
       <p class="screen-intro">
         Your field's projected 2045 climate next to its twin's climate today.
@@ -83,14 +97,31 @@
     </section>
 
     <!-- Screen 3: The Drift (optional) -->
-    <section id="drift" class="screen optional" hidden>
+    <section id="drift" class="screen optional themed theme-ocean" hidden>
+      <!-- Scene: birds migrating over a moving sea -->
+      <div class="scene" aria-hidden="true">
+        <div class="particles" data-particle="bird" data-count="9"></div>
+        <svg class="wave wave--back" viewBox="0 0 2400 120" preserveAspectRatio="none"><path d="M0 60 Q150 20 300 60 T600 60 T900 60 T1200 60 T1500 60 T1800 60 T2100 60 T2400 60 V120 H0 Z"/></svg>
+        <svg class="wave wave--mid" viewBox="0 0 2400 120" preserveAspectRatio="none"><path d="M0 70 Q100 40 200 70 T400 70 T600 70 T800 70 T1000 70 T1200 70 T1400 70 T1600 70 T1800 70 T2000 70 T2200 70 T2400 70 V120 H0 Z"/></svg>
+        <svg class="wave wave--front" viewBox="0 0 2400 120" preserveAspectRatio="none"><path d="M0 80 Q200 55 400 80 T800 80 T1200 80 T1600 80 T2000 80 T2400 80 V120 H0 Z"/></svg>
+      </div>
       <h2>Your Field Has Already Moved</h2>
       <div id="drift-map"></div>
       <p id="drift-text"></p>
     </section>
 
     <!-- Screen 4: Viability Curve (optional) -->
-    <section id="viability" class="screen optional" hidden>
+    <section id="viability" class="screen optional themed theme-drought" hidden>
+      <!-- Scene: hot sun over land that dries out, then recovers, on a loop -->
+      <div class="scene" aria-hidden="true">
+        <div class="sun sun--hot"></div>
+        <div class="particles" data-particle="heat" data-count="6"></div>
+        <svg class="ground" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <path class="ground-fill" d="M0 90 C 300 70 600 100 900 80 S 1100 75 1200 85 V200 H0 Z"/>
+          <path class="cracks" d="M80 120 l40 25 l-10 30 M120 145 l45 -5 M300 110 l-20 40 l35 25 M280 150 l-40 15 M520 125 l30 30 l-25 30 M550 155 l50 -10 M760 105 l-15 45 l40 20 M745 150 l-45 20 M980 120 l35 30 l-20 35 M1015 150 l55 5"/>
+        </svg>
+        <div class="particles grass-row" data-particle="tuft" data-count="22"></div>
+      </div>
       <h2>Current Crop Viability</h2>
       <canvas id="viability-chart"></canvas>
     </section>
@@ -106,6 +137,11 @@
 
   <!-- Story mode controls (shown only during story mode) -->
   <div id="story-bar" class="story-bar" hidden role="region" aria-label="Story mode">
+    <!-- Scene: night sky with twinkling stars and a shooting star -->
+    <div class="scene" aria-hidden="true">
+      <div class="particles" data-particle="star" data-count="40"></div>
+      <span class="shooting-star"></span>
+    </div>
     <button type="button" id="story-prev" class="story-btn">← Back</button>
     <div class="story-progress">
       <p id="story-label" aria-live="polite"></p>
