@@ -477,6 +477,8 @@ main {
 }
 
 .sig-tip {
+  /* Own colour: the dark tooltip must not inherit a theme's dark text */
+  color: #f1f5ff;
   position: absolute;
   left: 1rem;
   bottom: calc(100% - 0.25rem);
@@ -500,7 +502,7 @@ main {
 
 .sig-tip-what {
   display: block;
-  opacity: 0.8;
+  color: #dbe6ff;
   margin-bottom: 0.25rem;
 }
 
