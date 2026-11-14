@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "sub-agent-review",
+      "description": "After a sub-agent finishes, remind the agent to review its work.",
+      "trigger": "PostToolUse",
+      "matcher": "^invoke_sub_agent$",
+      "action": {
+        "type": "agent",
+        "prompt": "Sub-agent completed. Review its work:\n- Verify it completed the assigned task\n- Check for unintended side effects or scope creep\n- Ensure code quality and style consistency\n- Confirm tests pass and cover new changes\n- Validate no breaking changes were introduced"
+      }
+    }
+  ]
+}

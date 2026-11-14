@@ -105,11 +105,37 @@ body {
   transform: rotate(var(--a)) translateX(var(--orbit-radius)) rotate(calc(-1 * var(--a)));
 }
 
-/* Counter-rotate so each crop stays upright while the ring turns */
-.crop > span {
+/* Counter-rotate so each crop stays upright while the ring turns.
+   This wrapper owns the spin; the emoji inside it only cross-fade, so the
+   two transforms never fight. */
+.crop-upright {
   display: inline-block;
+  position: relative;
   animation: spin var(--orbit-time) linear infinite reverse;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+/* The second emoji sits on top of the first for the cross-fade. */
+.crop-emoji--next {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+}
+
+/* Fade the new crop in and the old one out, with a small scale for life. */
+.crop-emoji {
+  display: inline-block;
+  transition: opacity var(--crop-fade, 600ms) ease, transform var(--crop-fade, 600ms) ease;
+}
+
+.crop-emoji.is-out {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.crop-emoji--next.is-in {
+  opacity: 1;
 }
 
 .hero-title {
@@ -1813,6 +1839,26 @@ body.story-active {
   color: #13315c;
 }
 
+/* ---------- A screen whose data is missing from this result ---------- */
+
+.screen-error {
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(6, 10, 35, 0.8);
+  color: #ffe2b8;
+  font-size: 1.05rem;
+}
+
+.optional:not(.has-error) .screen-error {
+  display: none;
+}
+
+/* Hide the content too: it may still show the previous field. */
+.optional.has-error > :not(.scene):not(h2):not(.screen-error) {
+  display: none !important;
+}
+
 /* ---------- Footer: data credit and AI disclosure ---------- */
 
 .site-footer {
@@ -1881,6 +1927,16 @@ body.story-active {
     border-radius: 8px;
   }
 
+  #print-snapshot:not([src]) {
+    display: none;
+  }
+
+  .screen-error {
+    background: none !important;
+    color: #111 !important;
+    padding: 0 !important;
+  }
+
   main {
     max-width: none;
     margin: 0;
@@ -1946,7 +2002,6 @@ body.story-active {
   }
 
   #drift-map {
-    height: 320px;
     border: 1px solid #999 !important;
   }
 

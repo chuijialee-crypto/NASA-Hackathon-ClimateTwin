@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "file-read-log",
+      "description": "Append each file the agent reads to .kiro/read-log.txt (git-ignored).",
+      "trigger": "PostToolUse",
+      "matcher": "^read_file$",
+      "timeout": 10,
+      "action": {
+        "type": "command",
+        "command": "python3 -c \"import sys, json, os, datetime; d = json.load(sys.stdin); p = (d.get('tool_input') or {}).get('path', '?'); log = os.path.join(d.get('cwd') or '.', '.kiro', 'read-log.txt'); os.makedirs(os.path.dirname(log), exist_ok=True); open(log, 'a').write(datetime.datetime.now().isoformat(timespec='seconds') + ' ' + str(p) + '\\n')\""
+      }
+    },
+    {
+      "name": "file-read-reminder",
+      "description": "Remind the agent how to treat what it just read.",
+      "trigger": "PostToolUse",
+      "matcher": "^read_file$",
+      "action": {
+        "type": "agent",
+        "prompt": "File read. If it may hold secrets (.env, credentials, keys, .pem), do not repeat secret values; refer to them by key name only. For config files (.json, .yaml, .toml), watch for environment-specific settings and validation rules. For SQL or migration files, consider data integrity, rollback and performance."
+      }
+    }
+  ]
+}
