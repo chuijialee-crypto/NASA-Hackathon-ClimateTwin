@@ -18,20 +18,123 @@ body {
   color: #eee;
 }
 
-header {
+/* ---------- Header: centred turning globe, orbiting crops, title ---------- */
+
+.hero {
+  --globe-size: 4.5rem;
+  --orbit-radius: 4.6rem;
+  --orbit-time: 24s;
+  position: relative;
+  overflow: hidden;
   text-align: center;
-  padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem 1rem 2.25rem;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.18), transparent 45%),
+    linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-header h1 {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
+.hero-globe {
+  position: relative;
+  width: calc(var(--orbit-radius) * 2 + 2.5rem);
+  height: calc(var(--orbit-radius) * 2 + 2.5rem);
+  margin: 0 auto 0.75rem;
+}
+
+/* The three globe emojis show Asia, Africa/Europe and the Americas.
+   Swapping them in turn makes the globe look like it is turning. */
+.globe {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--globe-size);
+  height: var(--globe-size);
+  font-size: var(--globe-size);
+  line-height: 1;
+  filter: drop-shadow(0 0 18px rgba(165, 230, 255, 0.55));
+  animation: float 6s ease-in-out infinite;
+}
+
+.globe-frame {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: globe-turn 3s step-end infinite;
+}
+
+.globe-frame:first-child { opacity: 1; }          /* shown if motion is reduced */
+.globe-frame:nth-child(2) { animation-delay: -2s; }
+.globe-frame:nth-child(3) { animation-delay: -1s; }
+
+@keyframes globe-turn {
+  0%      { opacity: 1; }
+  33.333% { opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* Faint ring the crops travel along */
+.orbit {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(var(--orbit-radius) * 2);
+  height: calc(var(--orbit-radius) * 2);
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  animation: spin var(--orbit-time) linear infinite;
+}
+
+.crop {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2rem;
+  height: 2rem;
+  margin: -1rem 0 0 -1rem;
+  font-size: 1.6rem;
+  line-height: 2rem;
+  transform: rotate(var(--a)) translateX(var(--orbit-radius)) rotate(calc(-1 * var(--a)));
+}
+
+/* Counter-rotate so each crop stays upright while the ring turns */
+.crop > span {
+  display: inline-block;
+  animation: spin var(--orbit-time) linear infinite reverse;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.hero-title {
+  font-family: 'Avenir Next', Avenir, Futura, 'Segoe UI Variable Display',
+    'Segoe UI', Montserrat, 'Helvetica Neue', Arial, sans-serif;
+  font-size: clamp(2.6rem, 6vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  margin-bottom: 0.6rem;
+  color: #fff; /* fallback where gradient text isn't supported */
+  background: linear-gradient(90deg, #ffffff 0%, #d4fc79 45%, #96e6a1 70%, #ffffff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 10px rgba(30, 10, 70, 0.45));
+  animation: shimmer 8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% center; }
+  50%      { background-position: 100% center; }
 }
 
 .tagline {
-  font-size: 1.2rem;
-  opacity: 0.9;
+  font-family: 'Avenir Next', Avenir, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  opacity: 0.92;
 }
 
 main {
