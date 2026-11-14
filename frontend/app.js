@@ -14,16 +14,58 @@ const SCREEN_FADE_MS = 350; // keep in sync with .optional transition in style.c
 const prefersReducedMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const SIGNATURE_LABELS = {
-  mean_temp: 'Mean Temp (°C)',
-  gdd: 'Growing Degree Days',
-  rain_mm: 'Annual Rainfall (mm)',
-  wet_share: 'Wet Season Share',
-  dry_spell_days: 'Longest Dry Spell (days)',
-  heat_days: 'Heat Stress Days',
-  solar: 'Solar Radiation (MJ/m²/day)',
-  cold_month: 'Coldest Month (°C)'
+// "why" text follows the "Why a Farmer Cares" column in README.md.
+const SIGNATURES = {
+  mean_temp: {
+    label: 'Mean Temp (°C)',
+    what: 'Average air temperature across the whole year.',
+    why: 'Sets which crops are possible at all.'
+  },
+  gdd: {
+    label: 'Growing Degree Days',
+    what: 'Daily warmth above 10°C, added up over the year.',
+    why: 'How fast a crop reaches maturity.'
+  },
+  rain_mm: {
+    label: 'Annual Rainfall (mm)',
+    what: 'Total rain in a year.',
+    why: 'Whether irrigation is optional.'
+  },
+  wet_share: {
+    label: 'Wet Season Share',
+    what: 'How much of the year\'s rain falls in the wet season.',
+    why: 'Monsoon shape: the same total rain can mean very different farming.'
+  },
+  dry_spell_days: {
+    label: 'Longest Dry Spell (days)',
+    what: 'Longest run of days with less than 1 mm of rain.',
+    why: 'The number that kills a crop.'
+  },
+  heat_days: {
+    label: 'Heat Stress Days',
+    what: 'Days per year hotter than 35°C.',
+    why: 'Causes flowering failure in rice, maize and vegetables.'
+  },
+  solar: {
+    label: 'Solar Radiation (MJ/m²/day)',
+    what: 'Average sunlight reaching the ground each day.',
+    why: 'Sets the ceiling on photosynthesis.'
+  },
+  cold_month: {
+    label: 'Coldest Month (°C)',
+    what: 'Average temperature of the coldest month.',
+    why: 'A hard limit for tropical tree crops.'
+  }
 };
+
+// Story mode order. The reveal stays on screen; each later step opens one screen.
+const STORY_STEPS = [
+  { id: 'reveal', title: 'The reveal' },
+  { id: 'crops', title: 'What grows there' },
+  { id: 'honesty-panel', title: 'Why it matches' },
+  { id: 'drift', title: 'The drift' },
+  { id: 'viability', title: 'Crop viability' }
+];
 
 const state = {
   data: null,
@@ -253,6 +295,7 @@ async function renderReveal(data, id) {
   const layer = state.revealLayer;
   const resultText = document.getElementById('result-text');
 
+  cancelArcAnimation(); // story mode can replay the reveal mid-animation
   layer.clearLayers();
   resultText.classList.remove('is-visible');
 
@@ -320,7 +363,7 @@ function renderHonestyPanel(data) {
   `;
 
   const tbody = table.querySelector('tbody');
-  for (const [key, label] of Object.entries(SIGNATURE_LABELS)) {
+  for (const [key, { label, what, why }] of Object.entries(SIGNATURES)) {
     const fieldVal = signature_2045[key];
     const twinVal = twin.signature[key];
     const diff = typeof fieldVal === 'number' && typeof twinVal === 'number'
@@ -330,14 +373,69 @@ function renderHonestyPanel(data) {
     const digits = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 }[key] ?? 1;
 
     const row = document.createElement('tr');
+    row.className = 'sig-row';
+    row.tabIndex = 0; // lets keyboard and touch users open the explanation
+    const tipId = `tip-${key}`;
+    row.setAttribute('aria-describedby', tipId);
     row.innerHTML = `
-      <td>${label}</td>
+      <td class="sig-label">
+        ${label} <span class="info" aria-hidden="true">ⓘ</span>
+        <span class="sig-tip" id="${tipId}" role="tooltip">
+          <span class="sig-tip-what">${what}</span>
+          <strong class="sig-tip-why">${why}</strong>
+        </span>
+      </td>
       <td>${fmt(fieldVal, digits)}</td>
       <td>${fmt(twinVal, digits)}</td>
       <td>${fmt(diff, digits)}</td>
     `;
     tbody.appendChild(row);
   }
+}
+
+// ---------- Crop cards ----------
+
+// Only allow http(s) links from the data, never javascript: etc.
+function safeUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderCrops(data) {
+  const crops = data.crops_there || [];
+  const container = document.getElementById('crop-cards');
+
+  document.getElementById('crops-title').textContent =
+    `What Grows in ${data.twin.place} Today`;
+
+  if (crops.length === 0) {
+    container.innerHTML = '<p class="crop-empty">No crop data for this twin yet.</p>';
+    return;
+  }
+
+  container.replaceChildren(...crops.map((crop, i) => {
+    const card = document.createElement('article');
+    card.className = 'crop-card';
+    card.style.setProperty('--i', i); // staggers the entrance animation
+
+    const url = safeUrl(crop.source);
+    const source = url
+      ? `<a class="crop-source" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">
+           Source: ${escapeHtml(url.hostname.replace(/^www\./, ''))} ↗
+         </a>`
+      : '';
+
+    card.innerHTML = `
+      <h3 class="crop-name">🌾 ${escapeHtml(crop.name)}</h3>
+      <p class="crop-note">${escapeHtml(crop.note)}</p>
+      ${source}
+    `;
+    return card;
+  }));
 }
 
 // ---------- Screen 3: The Drift ----------
@@ -442,6 +540,7 @@ function renderCaveats(caveats) {
 // ---------- Show/hide optional screens ----------
 
 const SCREEN_RENDERERS = {
+  crops: renderCrops,
   'honesty-panel': renderHonestyPanel,
   drift: renderDrift,
   viability: renderViability
@@ -464,8 +563,12 @@ function openScreen(section) {
   section.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
 }
 
-function closeScreen(section) {
+function closeScreen(section, { instant = false } = {}) {
   section.classList.remove('is-visible');
+  if (instant) {
+    section.hidden = true;
+    return;
+  }
   setTimeout(() => {
     if (!section.classList.contains('is-visible')) section.hidden = true;
   }, prefersReducedMotion ? 0 : SCREEN_FADE_MS);
@@ -475,15 +578,102 @@ function refreshOpenScreens() {
   document.querySelectorAll('.optional:not([hidden])').forEach(s => renderScreen(s.id));
 }
 
+function setScreenOpen(id, open, { instant = false } = {}) {
+  const section = document.getElementById(id);
+  const button = document.querySelector(`.toggle[data-target="${id}"]`);
+  if (button) button.setAttribute('aria-pressed', String(open));
+  if (open) openScreen(section);
+  else if (!section.hidden) closeScreen(section, { instant });
+}
+
 function initToggles() {
-  document.querySelectorAll('#screen-toggles .toggle').forEach(button => {
+  document.querySelectorAll('#screen-toggles .toggle[data-target]').forEach(button => {
     button.addEventListener('click', () => {
-      const section = document.getElementById(button.dataset.target);
       const open = button.getAttribute('aria-pressed') !== 'true';
-      button.setAttribute('aria-pressed', String(open));
-      if (open) openScreen(section);
-      else closeScreen(section);
+      setScreenOpen(button.dataset.target, open);
     });
+  });
+}
+
+// ---------- Story mode ----------
+
+const story = { active: false, step: 0 };
+
+function goToStep(step) {
+  story.step = Math.max(0, Math.min(STORY_STEPS.length - 1, step));
+  const current = STORY_STEPS[story.step];
+
+  // Show only the current step's screen. Close the others instantly so the
+  // page doesn't shift while scrolling to the new one.
+  for (const { id } of STORY_STEPS) {
+    if (id !== 'reveal' && id !== current.id) setScreenOpen(id, false, { instant: true });
+  }
+  if (current.id !== 'reveal') setScreenOpen(current.id, true);
+
+  if (current.id === 'reveal') {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    // Replay the arc so the presenter can start the story fresh.
+    if (state.data) renderReveal(state.data, state.requestId);
+  }
+
+  document.getElementById('story-label').textContent =
+    `Step ${story.step + 1} of ${STORY_STEPS.length}: ${current.title}`;
+  document.querySelectorAll('#story-dots li').forEach((dot, i) => {
+    dot.classList.toggle('is-current', i === story.step);
+    dot.classList.toggle('is-done', i < story.step);
+  });
+  document.getElementById('story-prev').disabled = story.step === 0;
+  document.getElementById('story-next').textContent =
+    story.step === STORY_STEPS.length - 1 ? 'Finish ✓' : 'Next →';
+}
+
+function startStory() {
+  story.active = true;
+  document.body.classList.add('story-active');
+  document.getElementById('story-bar').hidden = false;
+  goToStep(0);
+  document.getElementById('story-next').focus();
+}
+
+function exitStory() {
+  if (!story.active) return;
+  story.active = false;
+  document.body.classList.remove('story-active');
+  document.getElementById('story-bar').hidden = true;
+  document.getElementById('story-start').focus();
+}
+
+function nextStep() {
+  if (story.step === STORY_STEPS.length - 1) exitStory();
+  else goToStep(story.step + 1);
+}
+
+function initStory() {
+  document.getElementById('story-dots').replaceChildren(
+    ...STORY_STEPS.map(() => document.createElement('li'))
+  );
+  document.getElementById('story-start').addEventListener('click', startStory);
+  document.getElementById('story-next').addEventListener('click', nextStep);
+  document.getElementById('story-prev').addEventListener('click', () => goToStep(story.step - 1));
+  document.getElementById('story-exit').addEventListener('click', exitStory);
+
+  // Arrow keys, Page Up/Down (what presentation clickers send) and Escape.
+  document.addEventListener('keydown', e => {
+    if (!story.active || e.altKey || e.ctrlKey || e.metaKey) return;
+    // Space/Enter on a focused button already triggers its click.
+    const onButton = e.target instanceof HTMLButtonElement;
+    // Arrow keys pan a focused map, so leave them to Leaflet there.
+    const onMap = e.target instanceof Element && e.target.closest('.leaflet-container');
+    const arrowsOk = !onMap;
+    if (e.key === 'PageDown' || (e.key === 'ArrowRight' && arrowsOk) || (e.key === ' ' && !onButton && !onMap)) {
+      e.preventDefault();
+      nextStep();
+    } else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && arrowsOk)) {
+      e.preventDefault();
+      goToStep(story.step - 1);
+    } else if (e.key === 'Escape') {
+      exitStory();
+    }
   });
 }
 
@@ -492,6 +682,7 @@ function initToggles() {
 function init() {
   initRevealMap();
   initToggles();
+  initStory();
   selectField(DEMO_FIELD.lat, DEMO_FIELD.lon);
 }
 
