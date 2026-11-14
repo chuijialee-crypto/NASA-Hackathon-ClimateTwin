@@ -1,0 +1,86 @@
+{
+  "app_name": "Climate Twin",
+  "tagline": "Find the place that farms your field's future.",
+  "pitch_opening": "Every team here will tell a farmer what to plant next year. We are telling them where their farm is going, and who already farms there.",
+
+  "reveal": {
+    "headline_template": "Your field in 2045 is {twin_place} today.",
+    "headline_example": "Your field in 2045 is Central Thailand today.",
+    "subline": "That place exists. People farm it now. Here is what they grow.",
+    "field_label": "Your field",
+    "twin_label": "Climate twin (today)"
+  },
+
+  "honesty_panel": {
+    "title": "Side by side: your field in 2045 vs its twin today",
+    "intro": "Eight numbers, all computed from NASA POWER data. Closer numbers mean a better match.",
+    "columns": {
+      "signature": "Climate signature",
+      "field_2045": "Your field (2045)",
+      "twin_now": "Twin (today)"
+    },
+    "signature_labels": {
+      "mean_temp": "Mean annual temperature (C)",
+      "gdd": "Growing degree days (base 10C)",
+      "rain_mm": "Total annual rainfall (mm)",
+      "wet_share": "Wet-season concentration",
+      "dry_spell_days": "Longest dry spell (days)",
+      "heat_days": "Heat-stress days (over 35C)",
+      "solar": "Mean solar radiation (MJ/m2/day)",
+      "cold_month": "Coldest-month mean temp (C)"
+    }
+  },
+
+  "drift": {
+    "title": "Your field has already moved",
+    "template": "In climate terms, your field's twin has drifted {drift_km} km since 1995.",
+    "example": "In climate terms, your field's twin has drifted 610 km since 1995.",
+    "subline": "This is the backtest. It shows our method describes real, measured change, not a forecast.",
+    "twin_1995_label": "Twin in 1995",
+    "twin_now_label": "Twin today"
+  },
+
+  "transition": {
+    "title": "How long will today's crop hold?",
+    "subline": "Viability of the field's current crop, scored every five years.",
+    "y_axis": "Viability score (0 to 1)",
+    "x_axis": "Year"
+  },
+
+  "crops_there": {
+    "title": "What they already grow there",
+    "subline": "Crops suited to the twin's climate, with their tolerance sources."
+  },
+
+  "buttons": {
+    "pick_field": "Pick a field on the map",
+    "use_demo_field": "Use the demo field (Kedah, Malaysia)",
+    "find_twin": "Find the climate twin",
+    "show_backtest": "Show the 1995 backtest",
+    "reset": "Start over"
+  },
+
+  "tooltips": {
+    "gdd": "Growing degree days: accumulated warmth above 10C. Higher means a crop reaches maturity faster.",
+    "wet_share": "How concentrated rainfall is in the wet season. Same total rain, very different farming.",
+    "dry_spell_days": "The longest run of dry days in a year. Often the single number that decides if a crop survives.",
+    "heat_days": "Days hotter than 35C. Heat during flowering causes rice and maize to fail to set grain.",
+    "solar": "Average sunlight energy reaching the ground. Sets the ceiling on photosynthesis.",
+    "match_score": "How closely the twin matches your field's 2045 signature. 1.0 would be a perfect match.",
+    "distance_km": "Straight-line distance from your field to its climate twin."
+  },
+
+  "caveats": {
+    "title": "What this tool does and does not do",
+    "always_visible": true,
+    "items": [
+      "NASA POWER is gridded climate data at roughly 50 km, not a measurement of this specific field.",
+      "We do not forecast weather, yield, or profit.",
+      "A linear trend is a simplifying assumption, not a climate projection.",
+      "Confirm any planting decision with a local agricultural adviser."
+    ]
+  },
+
+  "data_credit": "Climate data: NASA POWER. Crop tolerances: FAO ECOCROP.",
+  "ai_disclosure": "Built with Kiro, Amazon's AI coding tool, as disclosed under NASA Space Apps rules."
+}
