@@ -64,7 +64,7 @@
     {"year": 2055, "score": 0.19}
   ],
   "caveats": [
-    "NASA POWER is ~50 km gridded data, not a measurement of this specific field.",
+    "NASA POWER is gridded climate data at roughly 50 km, not a measurement of this specific field.",
     "We do not forecast weather, yield, or profit.",
     "A linear trend is a simplifying assumption, not a climate projection.",
     "Confirm any planting decision with a local agricultural adviser."

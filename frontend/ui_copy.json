@@ -6,7 +6,7 @@
   "reveal": {
     "headline_template": "Your field in 2045 is {twin_place} today.",
     "headline_example": "Your field in 2045 is Central Thailand today.",
-    "subline": "That place exists. People farm it now. Here is what they grow.",
+    "subline": "That place exists. People farm it now. Here are the crops suited to its climate.",
     "field_label": "Your field",
     "twin_label": "Climate twin (today)"
   },
@@ -48,7 +48,7 @@
   },
 
   "crops_there": {
-    "title": "What they already grow there",
+    "title": "Crops suited to {twin_place}'s climate",
     "subline": "Crops suited to the twin's climate, with their tolerance sources."
   },
 
