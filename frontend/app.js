@@ -134,6 +134,8 @@ const state = {
 // ---------- UI copy (written by Role 3 in ui_copy.json) ----------
 
 let COPY = {};
+let CROPS = [];      // Role 3's crop knowledge base (data/crops.json)
+let cropTimer = null;
 
 // Looks up "a.b.c" in ui_copy.json; returns fallback if it's missing.
 function copy(path, fallback = '') {
@@ -154,6 +156,18 @@ function prettyUnits(text) {
     .replace(/\(C\)(?!\s*\d)/g, '(°C)')
     .replace(/(^|[^\w.])(\d{2})C\b/g, '$1$2°C')
     .replace(/MJ\/m2\b/g, 'MJ/m²');
+}
+
+// Role 3's crop list, used for the header crop rotation (and later the engine).
+async function loadCrops() {
+  try {
+    const res = await fetch('../data/crops.json');
+    if (!res.ok) throw new Error(res.status);
+    const list = await res.json();
+    if (Array.isArray(list)) CROPS = list;
+  } catch (err) {
+    console.warn('crops.json not loaded; using built-in crop set', err);
+  }
 }
 
 async function loadUiCopy() {
@@ -1763,6 +1777,83 @@ function initExport() {
   window.addEventListener('afterprint', restoreAfterPrint);
 }
 
+// ---------- Header: rotate the orbiting crops ----------
+
+// Emoji for the crops in data/crops.json. Names not listed fall back to 🌱.
+const CROP_EMOJI = {
+  'Paddy rice': '🌾', 'Maize': '🌽', 'Cassava': '🥔', 'Groundnut': '🥜',
+  'Sweet potato': '🍠', 'Soybean': '🫛', 'Mung bean': '🫘', 'Sorghum': '🌾',
+  'Pearl millet': '🌾', 'Chilli': '🌶️', 'Pineapple': '🍍', 'Banana': '🍌',
+  'Oil palm': '🌴', 'Rubber': '🌳', 'Durian': '🧌', 'Jackfruit': '🟢',
+  'Pigeon pea': '🫛', 'Taro': '🌿'
+};
+
+// Crops shown if crops.json hasn't loaded (names it would also produce).
+const DEFAULT_CROP_EMOJI = ['🌾', '🌽', '🥥', '🍌', '🍍', '🌶️', '🥜', '🍠', '🌴'];
+
+// __fastCrops speeds these up for tests.
+const CROP_ROTATE_MS = (typeof window !== 'undefined' && window.__fastCrops) ? 800 : 4000; // each orbit crop swaps this often
+const CROP_FADE_MS = (typeof window !== 'undefined' && window.__fastCrops) ? 150 : 600;     // length of the cross-fade
+
+// Unique emoji for the header, from Role 3's crop list when available.
+function cropEmojiList() {
+  const names = Array.isArray(CROPS) ? CROPS.map(c => c && c.name).filter(Boolean) : [];
+  const fromData = [...new Set(names.map(n => CROP_EMOJI[n] || '🌱'))];
+  const list = fromData.length >= 4 ? fromData : DEFAULT_CROP_EMOJI;
+  return list;
+}
+
+function initCropRotation() {
+  const slots = [...document.querySelectorAll('.crop .crop-upright > .crop-emoji')];
+  if (!slots.length) return;
+  document.documentElement.style.setProperty('--crop-fade', `${CROP_FADE_MS}ms`);
+  const emoji = cropEmojiList(); // already unique
+  if (emoji.length <= slots.length || prefersReducedMotion) return; // nothing to rotate to
+
+  // What each slot currently shows, and a shared cursor into the list.
+  const current = slots.map((_, i) => emoji[i % emoji.length]);
+  slots.forEach((slot, i) => {
+    slot.textContent = current[i];
+    // A second span sits on top (inside the same upright wrapper) for the fade.
+    const next = document.createElement('span');
+    next.className = 'crop-emoji crop-emoji--next';
+    next.setAttribute('aria-hidden', 'true');
+    slot.parentElement.appendChild(next); // .crop-upright
+  });
+
+  // The next emoji along the list that none of the four slots is showing,
+  // so the four crops on screen are always different from each other.
+  let cursor = slots.length;
+  function nextEmoji() {
+    for (let tries = 0; tries < emoji.length; tries++) {
+      const candidate = emoji[cursor % emoji.length];
+      cursor++;
+      if (!current.includes(candidate)) return candidate;
+    }
+    return null; // can't happen: the list is longer than the slot count
+  }
+
+  let tick = 0;
+  cropTimer = setInterval(() => {
+    const i = tick % slots.length; // rotate one crop per tick, staggered
+    tick++;
+    const pick = nextEmoji();
+    if (!pick) return;
+    const shown = slots[i];
+    const next = shown.parentElement.querySelector('.crop-emoji--next');
+    next.textContent = pick;
+    current[i] = pick;
+    // Cross-fade: new one in, current one out.
+    next.classList.add('is-in');
+    shown.classList.add('is-out');
+    setTimeout(() => {
+      shown.textContent = pick;
+      shown.classList.remove('is-out');
+      next.classList.remove('is-in');
+    }, CROP_FADE_MS);
+  }, CROP_ROTATE_MS / slots.length);
+}
+
 // ---------- Animated scene backgrounds ----------
 
 // Fills each .particles container with decorative pieces. Every piece gets
@@ -1821,7 +1912,8 @@ function initScenes() {
 // ---------- Start ----------
 
 async function init() {
-  await loadUiCopy();   // Role 3's wording, before anything is drawn
+  await Promise.all([loadUiCopy(), loadCrops()]); // Role 3's wording + crops
+  initCropRotation();
   initScenes();
   initRevealMap();   // create the flat map while its box is still visible
   initViews();       // then add the 3D globe and pick the starting view
