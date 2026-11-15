@@ -10,6 +10,8 @@ const API_TIMEOUT_MS = 15000;
 // folder (python -m http.server 3000 --directory frontend), using the copy kept there.
 const DEMO_FIELD_PATHS = ['../data/demo_field.json', './demo_field.json'];
 const STATE_PRESETS_PATHS = ['../data/malaysia_states.json', './malaysia_states.json'];
+const UI_COPY_PATHS = ['../data/ui_copy.json', './ui_copy.json'];
+const CROPS_PATHS = ['../data/crops.json', './crops.json'];
 // A clicked or typed point counts as a preset when it is within this many degrees
 // of the preset's coordinates (0.01 degrees is about 1 km).
 const PRESET_MATCH_TOLERANCE_DEG = 0.01;
@@ -96,10 +98,10 @@ const MALAYSIA_PRESETS = [
   { name: 'Sarawak: oil palm (Miri)', lat: 4.4, lon: 113.99 }
 ];
 
-// Radar chart display scale: each spoke runs from a low to a high value for
+// Chart display scale: each bar runs from a low to a high value for
 // farmland. Display only; it doesn't affect matching. Swap in the global
 // grid's min/max when the engine provides them.
-const RADAR_RANGES = {
+const DISPLAY_RANGES = {
   mean_temp: [0, 32],
   gdd: [0, 8500],
   rain_mm: [0, 4000],
@@ -128,7 +130,7 @@ const state = {
   driftMap: null,
   driftLayer: null,
   chart: null,
-  radar: null,
+  compare: null,
   view: 'map',        // 'globe' or 'map'
   loading: false,     // a lookup is in progress
   pending: null,      // { lat, lon } being looked up
@@ -171,9 +173,7 @@ function prettyUnits(text) {
 // Role 3's crop list, used for the header crop rotation (and later the engine).
 async function loadCrops() {
   try {
-    const res = await fetch('../data/crops.json');
-    if (!res.ok) throw new Error(res.status);
-    const list = await res.json();
+    const list = await fetchJsonFromFirst(CROPS_PATHS);
     if (Array.isArray(list)) CROPS = list;
   } catch (err) {
     console.warn('crops.json not loaded; using built-in crop set', err);
@@ -182,9 +182,9 @@ async function loadCrops() {
 
 async function loadUiCopy() {
   try {
-    const res = await fetch('./ui_copy.json');
-    if (!res.ok) throw new Error(res.status);
-    COPY = await res.json();
+    const json = await fetchJsonFromFirst(UI_COPY_PATHS);
+    if (!isObj(json)) throw new Error('ui_copy.json is not an object');
+    COPY = json;
   } catch (err) {
     console.warn('ui_copy.json not loaded; using built-in text', err);
     return;
@@ -1013,17 +1013,112 @@ function initViews() {
 
 // ---------- Screen 2: The Honesty Panel ----------
 
+// Short everyday names for the chart. The table keeps the fuller labels.
+const PLAIN_NAMES = {
+  mean_temp: 'Average temperature',
+  gdd: 'Warmth for crop growth',
+  rain_mm: 'Yearly rain',
+  wet_share: 'Rain in the wet season',
+  dry_spell_days: 'Longest dry spell',
+  heat_days: 'Very hot days',
+  solar: 'Sunshine',
+  cold_month: 'Coldest month'
+};
+
+// Counts are whole numbers; wet_share is a 0–1 fraction.
+const DIGITS = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 };
+const sigDigits = key => DIGITS[key] ?? 1;
+
+// A change smaller than `little` counts as "little change"; `big` or more is "a lot".
+// Each size is in that value's own unit. These are display rules of thumb, not crop limits.
+const CHANGE_BANDS = {
+  mean_temp: { little: 0.15, big: 1.0, unit: '°C' },
+  gdd: { little: 60, big: 400, unit: 'degree-days' },
+  rain_mm: { little: 100, big: 500, unit: 'mm' },
+  wet_share: { little: 0.02, big: 0.08, unit: '' },
+  dry_spell_days: { little: 2, big: 7, unit: 'days' },
+  heat_days: { little: 2, big: 10, unit: 'days' },
+  solar: { little: 0.2, big: 1.0, unit: 'MJ/m²/day' },
+  cold_month: { little: 0.2, big: 1.0, unit: '°C' }
+};
+
+// Plain-language pros and cons for each direction of change. `lean` says which way the
+// balance tips for a typical farm: 'pro', 'con' or 'mixed'. General rules of thumb only.
+const PROS_CONS = {
+  mean_temp: {
+    up: { lean: 'con', pro: 'Crops can grow and ripen a little faster.', con: 'Hotter days and nights add heat stress, so crops need more water and shade.' },
+    down: { lean: 'pro', pro: 'Less heat stress on crops and on people working the field.', con: 'Growth can slow, so crops may take longer to be ready.' }
+  },
+  gdd: {
+    up: { lean: 'mixed', pro: 'More warmth to ripen crops, so seasons can get shorter.', con: 'Faster ripening can leave less time to fill grain or fruit.' },
+    down: { lean: 'mixed', pro: 'Cooler seasons ease heat stress.', con: 'Crops need longer to mature, so the season stretches.' }
+  },
+  rain_mm: {
+    up: { lean: 'mixed', pro: 'More natural water, so less irrigation is needed.', con: 'Wetter spells raise the risk of waterlogging, flooding and crop disease.' },
+    down: { lean: 'con', pro: 'Fields stay drier, which makes field work and harvest easier.', con: 'Less natural water, so irrigation costs and drought risk go up.' }
+  },
+  wet_share: {
+    up: { lean: 'con', pro: 'Wet-season rain is easier to plan around.', con: 'More rain falls in a short, heavy season, leaving longer dry stretches outside it.' },
+    down: { lean: 'pro', pro: 'Rain is spread more evenly through the year.', con: 'The wet season is a weaker signal, so planting dates are harder to time.' }
+  },
+  dry_spell_days: {
+    up: { lean: 'con', pro: 'Dry weeks help with harvesting and drying grain.', con: 'Longer gaps between rains can stress crops, so you may need to irrigate.' },
+    down: { lean: 'pro', pro: 'Fewer long gaps without rain, so crops get steadier water.', con: 'Less dry weather makes it harder to harvest and dry crops.' }
+  },
+  heat_days: {
+    up: { lean: 'con', pro: 'Little upside, apart from faster drying of harvested crops.', con: 'More days above 35 °C can stop rice, maize and vegetables from setting grain or fruit.' },
+    down: { lean: 'pro', pro: 'Fewer damaging days, so crops set grain or fruit more reliably.', con: 'No real downside.' }
+  },
+  solar: {
+    up: { lean: 'pro', pro: 'More sunlight for photosynthesis, which supports growth.', con: 'Soil and crops lose water faster in strong sun.' },
+    down: { lean: 'con', pro: 'Less water is lost to the sun, so soil stays moist longer.', con: 'Less sunlight can slow growth, especially in cloudy wet seasons.' }
+  },
+  cold_month: {
+    up: { lean: 'pro', pro: 'Tropical tree crops are safer from cool spells.', con: 'Crops that need a cool spell to flower may do worse.' },
+    down: { lean: 'con', pro: 'More cool nights help some crops to flower.', con: 'Cold can damage tropical tree crops such as oil palm and durian.' }
+  }
+};
+const STEADY_TEXT = 'No big change from today, so your current routine should still fit.';
+const LEAN_TEXT = { pro: 'Mostly better', con: 'Mostly harder', mixed: 'Mixed' };
+const ARROW = { up: '▲', down: '▼', steady: '=' };
+
+// Direction and size of the change from today to 2045 for one value, or null if either is missing.
+function changeOf(key, now, future) {
+  if (!isNum(now) || !isNum(future)) return null;
+  const delta = future - now;
+  const band = CHANGE_BANDS[key];
+  const size = Math.abs(delta);
+  const direction = size < band.little ? 'steady' : (delta > 0 ? 'up' : 'down');
+  return { delta, direction, big: size >= band.big };
+}
+
+// The "Pros & Cons" cell: a status tag (words and an arrow, not colour alone), then one pro and one con.
+function prosConsCell(key, change) {
+  if (!change) return '<span class="chip chip--steady">No data</span>';
+  if (change.direction === 'steady') {
+    return `<span class="chip chip--steady">${ARROW.steady} Little change</span>
+      <p class="pc-line">${escapeHtml(STEADY_TEXT)}</p>`;
+  }
+  const rule = PROS_CONS[key][change.direction];
+  const move = (change.direction === 'up' ? 'Rising' : 'Falling') + (change.big ? ' a lot' : '');
+  return `<span class="chip chip--${rule.lean}">${ARROW[change.direction]} ${move} · ${LEAN_TEXT[rule.lean]}</span>
+    <p class="pc-line pc-pro"><b>Pro:</b> ${escapeHtml(rule.pro)}</p>
+    <p class="pc-line pc-con"><b>Con:</b> ${escapeHtml(rule.con)}</p>`;
+}
+
 function renderHonestyPanel(data) {
-  const { signature_2045, twin } = data;
+  const { signature_now, signature_2045, twin } = data;
   const table = document.getElementById('signature-table');
 
   table.innerHTML = `
     <thead>
       <tr>
         <th>${escapeHtml(copy('honesty_panel.columns.signature', 'Signature'))}</th>
+        <th>Today (2025)</th>
         <th>${escapeHtml(copy('honesty_panel.columns.field_2045', 'Your Field (2045)'))}</th>
         <th>${escapeHtml(copy('honesty_panel.columns.twin_now', 'Twin (Today)'))}</th>
-        <th>Difference</th>
+        <th>Gap to twin</th>
+        <th class="proscons">Pros &amp; Cons (2025 vs 2045)</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -1033,13 +1128,11 @@ function renderHonestyPanel(data) {
   for (const key of Object.keys(SIGNATURES)) {
     const label = escapeHtml(sigLabel(key));
     const { what, why } = sigTip(key);
+    const nowVal = (signature_now || {})[key];
     const fieldVal = signature_2045[key];
     const twinVal = twin.signature[key];
-    const diff = typeof fieldVal === 'number' && typeof twinVal === 'number'
-      ? Math.abs(fieldVal - twinVal)
-      : null;
-    // Counts are whole numbers; wet_share is a 0–1 fraction.
-    const digits = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 }[key] ?? 1;
+    const gap = isNum(fieldVal) && isNum(twinVal) ? Math.abs(fieldVal - twinVal) : null;
+    const digits = sigDigits(key);
 
     const row = document.createElement('tr');
     row.className = 'sig-row';
@@ -1054,90 +1147,93 @@ function renderHonestyPanel(data) {
           <strong class="sig-tip-why">${escapeHtml(why)}</strong>
         </span>
       </td>
+      <td>${fmt(nowVal, digits)}</td>
       <td>${fmt(fieldVal, digits)}</td>
       <td>${fmt(twinVal, digits)}</td>
-      <td>${fmt(diff, digits)}</td>
+      <td>${fmt(gap, digits)}</td>
+      <td class="proscons">${prosConsCell(key, changeOf(key, nowVal, fieldVal))}</td>
     `;
     tbody.appendChild(row);
   }
 
-  renderRadar(data);
+  renderCompareChart(data);
 }
 
-// ---------- Radar chart (Compare climates) ----------
+// ---------- Comparison chart: today vs 2045, two bars per value ----------
 
-const RADAR_SERIES = [
-  { key: 'now', label: 'Your field today', color: '46, 158, 91', dash: [6, 4] },
-  { key: '2045', label: 'Your field in 2045', color: '232, 137, 12', dash: [] },
-  { key: 'twin', label: 'Twin today', color: '214, 40, 57', dash: [] }
+const COMPARE_SERIES = [
+  { key: 'now', label: 'Today', color: '46, 158, 91' },
+  { key: '2045', label: '2045 trend', color: '232, 137, 12' }
 ];
 
-// Puts a value on its spoke's 0–1 scale, clamped so outliers stay on the chart.
-function radarScale(key, value) {
-  if (typeof value !== 'number') return null;
-  const [lo, hi] = RADAR_RANGES[key];
+// Puts a value on its bar's 0–1 scale, clamped so outliers stay on the chart.
+function displayScale(key, value) {
+  if (!isNum(value)) return null;
+  const [lo, hi] = DISPLAY_RANGES[key];
   return Math.min(1, Math.max(0, (value - lo) / (hi - lo)));
 }
 
-function renderRadar(data) {
+function renderCompareChart(data) {
   const keys = Object.keys(SIGNATURES);
-  const sources = { now: data.signature_now, '2045': data.signature_2045, twin: data.twin.signature };
-  const datasets = RADAR_SERIES.map(series => {
-    const raw = keys.map(k => (sources[series.key] || {})[k]);
+  const sources = { now: data.signature_now || {}, '2045': data.signature_2045 || {} };
+  // Each name carries an arrow for the direction of change, so the chart reads at a glance.
+  const labels = keys.map(k => {
+    const change = changeOf(k, sources.now[k], sources['2045'][k]);
+    return `${PLAIN_NAMES[k]} ${change ? ARROW[change.direction] : ''}`.trim();
+  });
+  const datasets = COMPARE_SERIES.map(series => {
+    const raw = keys.map(k => sources[series.key][k]);
     return {
       label: series.label,
       raw,                                   // real values, for the tooltip
-      data: keys.map((k, i) => radarScale(k, raw[i])),
-      borderColor: `rgb(${series.color})`,
-      backgroundColor: `rgba(${series.color}, 0.14)`,
-      borderDash: series.dash,
-      borderWidth: 2.5,
-      pointBackgroundColor: `rgb(${series.color})`,
-      pointRadius: 3.5,
-      pointHoverRadius: 7
+      data: keys.map((k, i) => displayScale(k, raw[i])),
+      backgroundColor: `rgba(${series.color}, 0.9)`,
+      borderRadius: 4,
+      barPercentage: 0.85,
+      categoryPercentage: 0.8
     };
   });
 
-  if (state.radar) {
-    state.radar.data.datasets = datasets;
-    state.radar.update();
+  if (state.compare) {
+    state.compare.data.labels = labels;
+    state.compare.data.datasets = datasets;
+    state.compare.update();
     return;
   }
 
   const ink = '#0b2545';
-  state.radar = new Chart(document.getElementById('radar-chart'), {
-    type: 'radar',
-    data: {
-      // Short spoke labels; the table has the full names.
-      labels: ['Mean temp', 'Growing degree days', 'Rainfall', 'Wet season share',
-        'Longest dry spell', 'Heat stress days', 'Solar radiation', 'Coldest month'],
-      datasets
-    },
+  state.compare = new Chart(document.getElementById('compare-chart'), {
+    type: 'bar',
+    data: { labels, datasets },
     options: {
+      indexAxis: 'y',
       responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1,
-      animation: prefersReducedMotion ? false : { duration: 900 },
+      maintainAspectRatio: false,
+      animation: prefersReducedMotion ? false : { duration: 700 },
       scales: {
-        r: {
+        x: {
           min: 0,
           max: 1,
-          ticks: { display: false, stepSize: 0.25 },
-          grid: { color: 'rgba(11, 37, 69, 0.15)' },
-          angleLines: { color: 'rgba(11, 37, 69, 0.2)' },
-          pointLabels: { color: ink, font: { size: 13, weight: '600' } }
+          border: { display: false },
+          grid: { color: 'rgba(11, 37, 69, 0.1)' },
+          ticks: { display: false, stepSize: 0.5 }   // light lines at low / middle / high only
+        },
+        y: {
+          border: { display: false },
+          grid: { display: false },
+          ticks: { color: ink, font: { size: 14, weight: '600' } }
         }
       },
       plugins: {
-        legend: { position: 'bottom', labels: { color: ink, font: { size: 13 }, usePointStyle: true } },
+        legend: { position: 'top', align: 'start', labels: { color: ink, font: { size: 14 }, usePointStyle: true } },
         tooltip: {
           callbacks: {
+            title: items => PLAIN_NAMES[keys[items[0].dataIndex]],
             label: ctx => {
               const key = keys[ctx.dataIndex];
-              const digits = { gdd: 0, rain_mm: 0, dry_spell_days: 0, heat_days: 0, wet_share: 2 }[key] ?? 1;
-              return `${ctx.dataset.label}: ${fmt(ctx.dataset.raw[ctx.dataIndex], digits)}`;
-            },
-            title: items => sigLabel(keys[items[0].dataIndex])
+              const value = fmt(ctx.dataset.raw[ctx.dataIndex], sigDigits(key));
+              return `${ctx.dataset.label}: ${value} ${CHANGE_BANDS[key].unit}`.trim();
+            }
           }
         }
       }
@@ -1237,50 +1333,335 @@ function renderDrift(data) {
 
 // ---------- Screen 4: Viability Curve ----------
 
+// Plain-language status for a viability score (0-1), best first.
+const VIABILITY_STATUS = [
+  { min: 0.75, label: 'Healthy', cls: 'ok', color: '#2e9e5b', band: 'rgba(46, 158, 91, 0.16)' },
+  { min: 0.5, label: 'Watch', cls: 'watch', color: '#d97706', band: 'rgba(232, 137, 12, 0.18)' },
+  { min: 0, label: 'At risk', cls: 'risk', color: '#d62839', band: 'rgba(214, 40, 57, 0.14)' }
+];
+
+function viabilityStatus(score) {
+  return VIABILITY_STATUS.find(s => score >= s.min) || VIABILITY_STATUS[VIABILITY_STATUS.length - 1];
+}
+
+const percentOf = score => `${Math.round(score * 100)}%`;
+
+// Draws the three status bands behind the line (with their names in the right margin)
+// and the score above or below each point, so no gridlines or axis numbers are needed.
+const viabilityGuides = {
+  id: 'viabilityGuides',
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea: area, scales: { y } } = chart;
+    ctx.save();
+    VIABILITY_STATUS.forEach((status, i) => {
+      const top = y.getPixelForValue(i === 0 ? 1 : VIABILITY_STATUS[i - 1].min);
+      const bottom = y.getPixelForValue(status.min);
+      ctx.fillStyle = status.band;
+      ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
+      ctx.fillStyle = status.color;
+      ctx.font = '700 14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(status.label, area.right + 10, (top + bottom) / 2);
+    });
+    ctx.restore();
+  },
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const scores = chart.data.datasets[0].data;
+    ctx.save();
+    ctx.fillStyle = '#4a2511';
+    ctx.font = '700 14px sans-serif';
+    ctx.textAlign = 'center';
+    chart.getDatasetMeta(0).data.forEach((point, i) => {
+      const nearTop = scores[i] > 0.88;   // put the number below the point when there is no room above
+      ctx.textBaseline = nearTop ? 'top' : 'bottom';
+      ctx.fillText(percentOf(scores[i]), point.x, point.y + (nearTop ? 12 : -12));
+    });
+    ctx.restore();
+  }
+};
+
 function renderViability(data) {
   const viability = data.current_crop_viability;
   if (!viability.length) throw new ScreenDataMissing('This result has no viability scores yet.');
   const labels = viability.map(v => v.year);
   const scores = viability.map(v => v.score);
+  const dotColors = scores.map(s => viabilityStatus(s).color);
 
   if (state.chart) {
     state.chart.data.labels = labels;
     state.chart.data.datasets[0].data = scores;
+    state.chart.data.datasets[0].pointBackgroundColor = dotColors;
     state.chart.update();
-    return;
+  } else {
+    const ctx = document.getElementById('viability-chart').getContext('2d');
+    state.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Current crop viability',
+          data: scores,
+          borderColor: '#4a2511',
+          borderWidth: 3,
+          tension: 0,
+          fill: false,
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          pointBackgroundColor: dotColors,
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: prefersReducedMotion ? false : { duration: 900 },
+        layout: { padding: { right: 72, top: 8 } },   // room for the band names
+        scales: {
+          y: { min: 0, max: 1, border: { display: false }, grid: { display: false }, ticks: { display: false } },
+          x: {
+            offset: true, border: { color: 'rgba(74, 37, 17, 0.35)' },
+            grid: { display: false },
+            ticks: { color: '#4a2511', font: { size: 14, weight: '600' } }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: {
+              title: items => String(items[0].label),
+              label: ctx => `${percentOf(ctx.parsed.y)}: ${viabilityStatus(ctx.parsed.y).label}`
+            }
+          }
+        }
+      },
+      plugins: [viabilityGuides]
+    });
   }
 
-  const ctx = document.getElementById('viability-chart').getContext('2d');
-  state.chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Current Crop Viability',
-        data: scores,
-        borderColor: '#ff6b6b',
-        backgroundColor: 'rgba(255, 107, 107, 0.1)',
-        pointRadius: 5,
-        pointHoverRadius: 9,
-        tension: 0.4
-      }]
-    },
-    options: {
-      responsive: true,
-      animation: prefersReducedMotion ? false : { duration: 1200 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 1,
-          title: { display: true, text: copy('transition.y_axis', 'Viability Score') }
-        },
-        x: {
-          title: { display: true, text: copy('transition.x_axis', 'Year') }
-        }
+  renderViabilitySummary(data);
+  renderActionPlan(data);
+}
+
+// One plain sentence above the chart: where the crop stands now and at the end of the curve.
+function renderViabilitySummary(data) {
+  const el = document.getElementById('viability-summary');
+  if (!el) return;
+  const first = data.current_crop_viability[0];
+  const last = data.current_crop_viability[data.current_crop_viability.length - 1];
+  const crop = data.current_crop || 'The current crop';
+  el.textContent =
+    `${crop}: ${viabilityStatus(first.score).label} in ${first.year} (${percentOf(first.score)}), ` +
+    `${viabilityStatus(last.score).label} by ${last.year} (${percentOf(last.score)}).`;
+}
+
+// ---------- "How to Help Today's Crops Last Longer" ----------
+
+const MILESTONES = [
+  { year: 2025, tag: 'Near-term', phase: 'near' },
+  { year: 2035, tag: 'Mid-term', phase: 'mid' },
+  { year: 2045, tag: 'Long-term', phase: 'long' }
+];
+
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const whole = v => (isNum(v) ? String(Math.round(v)) : '?');
+
+function cropFor(name) {
+  if (!name) return null;
+  return CROPS.find(c => c && String(c.name).toLowerCase() === String(name).toLowerCase()) || null;
+}
+
+// Everything the advice needs, taken from the /twin response and crops.json.
+function planContext(data) {
+  const current = String(data.current_crop || '').toLowerCase();
+  return {
+    n: data.signature_now || {},
+    f: data.signature_2045 || {},
+    name: data.current_crop || 'your crop',
+    crop: cropFor(data.current_crop),            // null if crops.json did not load
+    alternatives: (data.crops_there || [])       // crops that fit the twin's climate, best first
+      .map(c => c && c.name)
+      .filter(name => name && name.toLowerCase() !== current)
+      .slice(0, 2),
+    twinPlace: data.twin.place,
+    likesWater: /paddy|rice|taro/i.test(data.current_crop || '')
+  };
+}
+
+// How strongly each climate risk applies to this field, from 0 (none) to 1 (strong).
+function driverSeverities(ctx) {
+  const { n, f, crop } = ctx;
+  const rise = key => (isNum(f[key]) && isNum(n[key]) ? f[key] - n[key] : 0);
+  const heatUsed = crop && isNum(f.heat_days) ? f.heat_days / crop.max_heat_days : 0;
+  return {
+    heat: clamp01(Math.max(rise('heat_days') / 10, rise('mean_temp') / 1.0, heatUsed)),
+    dry: clamp01(Math.max(rise('dry_spell_days') / 7, ((f.dry_spell_days ?? 0) - 14) / 20)),
+    wet: clamp01(Math.max(rise('rain_mm') / 600, rise('wet_share') / 0.08)),
+    lessrain: clamp01(-rise('rain_mm') / 400)
+  };
+}
+
+// One action and the benefit it gives, per risk and milestone phase.
+const ACTIONS = {
+  heat: {
+    near: () => ({
+      act: 'Plan planting so flowering misses the hottest weeks, and mulch bare soil.',
+      gain: 'Protects flowers from heat damage and keeps the soil cooler.'
+    }),
+    mid: ({ n, f, name, crop }) => ({
+      act: 'Add shade or windbreak trees, and make sure water is available on hot days.',
+      gain: (f.heat_days > n.heat_days + 0.5
+        ? `Eases heat stress as days above 35 °C go from ${whole(n.heat_days)} to ${whole(f.heat_days)} a year`
+        : `Eases heat stress as average temperature trends from ${fmt(n.mean_temp, 1)} to ${fmt(f.mean_temp, 1)} °C`) +
+        (crop ? `; ${name} tolerates up to ${crop.max_heat_days}.` : '.')
+    }),
+    long: ({ name }) => ({
+      act: 'Choose heat-tolerant varieties and adjust planting dates as the warm trend continues.',
+      gain: `Keeps ${name} within its heat limit for longer.`
+    })
+  },
+  dry: {
+    near: ({ n }) => ({
+      act: 'Mulch the soil, and note how many days pass between rains.',
+      gain: `Soil holds moisture longer, so a dry week hurts less (longest dry spell today: ${whole(n.dry_spell_days)} days).`
+    }),
+    mid: ({ f, name }) => ({
+      act: 'Build or repair a pond or tank, and plan irrigation for the driest weeks.',
+      gain: `Water is there for ${name} when rain stops (trend: a ${whole(f.dry_spell_days)}-day dry spell by 2045).`
+    }),
+    long: () => ({
+      act: 'Plant drought-tolerant varieties, or give part of the land to a hardier crop.',
+      gain: 'Spreads the risk so one long dry spell cannot take the whole harvest.'
+    })
+  },
+  wet: {
+    near: ({ n, f, likesWater }) => ({
+      act: likesWater
+        ? 'Check and repair bunds, spillways and drains before the wet season.'
+        : 'Clear drains and field channels before the wet season.',
+      gain: `${likesWater ? 'Keeps extra water under control' : 'Stops standing water that rots roots and spreads disease'} ` +
+        `as rain trends from ${whole(n.rain_mm)} to ${whole(f.rain_mm)} mm a year.`
+    }),
+    mid: ({ likesWater }) => likesWater
+      ? {
+        act: 'Store extra rainwater in ponds or tanks, so heavy rain can be used in the dry months.',
+        gain: 'Turns extra rain into irrigation and reduces flooding.'
       }
-    }
+      : {
+        act: 'Raise beds and add drainage where water collects.',
+        gain: 'Keeps roots out of standing water and stops topsoil washing away.'
+      },
+    long: ({ name, likesWater }) => likesWater
+      ? {
+        act: 'Shift planting dates to match the new wet-season timing, and keep water-control structures in good repair.',
+        gain: 'Keeps planting in step with when the rain actually falls.'
+      }
+      : {
+        act: 'Move crops that dislike wet feet to higher, well-drained ground.',
+        gain: `Matches ${name} to the water it will actually get.`
+      }
+  },
+  lessrain: {
+    near: () => ({
+      act: 'Measure rainfall on your own land, and record when it falls short.',
+      gain: 'Gives you an early warning from your own field, not just regional averages.'
+    }),
+    mid: () => ({
+      act: 'Add drip or sprinkler irrigation for the driest months.',
+      gain: 'Gets more crop from every litre of water.'
+    }),
+    long: () => ({
+      act: 'Move part of the land to crops that need less water.',
+      gain: 'Lowers irrigation cost and drought risk.'
+    })
+  },
+  soil: {
+    near: () => ({
+      act: 'Add compost or crop residue, and keep a simple weather and harvest diary.',
+      gain: 'Healthier soil holds more water and nutrients, and the diary shows early signs of change.'
+    }),
+    mid: () => ({
+      act: 'Rotate crops, or plant a legume between seasons.',
+      gain: 'Restores soil nutrients and spreads the risk.'
+    }),
+    long: () => ({
+      act: 'Review the plan with a local agricultural adviser and update it with fresh data.',
+      gain: 'Keeps decisions based on what is happening on your own land.'
+    })
+  },
+  switch: {
+    near: ({ name }) => ({
+      act: `Ask a local adviser whether ${name} still suits this land.`,
+      gain: 'Catches a poor fit early, while changes are cheap.'
+    }),
+    mid: ({ name, alternatives }) => ({
+      act: alternatives.length
+        ? `Trial a small plot of ${alternatives.join(' or ')} next to ${name}.`
+        : `Trial a small plot of a second crop next to ${name}.`,
+      gain: 'Shows what works on your own soil before you commit.'
+    }),
+    long: ({ name, alternatives, twinPlace }) => ({
+      act: alternatives.length
+        ? `Move the main crop toward ${alternatives.join(' or ')}, which fit the climate of your 2045 twin (${twinPlace}).`
+        : 'Move the main crop to one that fits the 2045 climate; ask your adviser which.',
+      gain: `Keeps income steady if ${name} no longer fits.`
+    })
+  }
+};
+
+// Picks up to two risks for a milestone: the strongest ones for this field, plus
+// "switch crops" when that milestone's viability score is low, and soil care as the fallback.
+function planFor(milestone, ctx, severity, score) {
+  const candidates = Object.entries(severity).map(([id, s]) => ({ id, s }));
+  if (isNum(score) && score < (milestone.phase === 'near' ? 0.5 : 0.75)) {
+    candidates.push({ id: 'switch', s: Math.min(1, (1 - score) * 1.2) });
+  }
+  candidates.sort((a, b) => b.s - a.s);
+  const chosen = candidates.filter(c => c.s >= 0.2).slice(0, 2).map(c => c.id);
+  for (const c of [{ id: 'soil', s: 1 }, ...candidates]) {
+    if (chosen.length >= 2) break;
+    if (!chosen.includes(c.id) && c.s > 0) chosen.push(c.id);
+  }
+  return chosen.map(id => ACTIONS[id][milestone.phase](ctx));
+}
+
+function renderActionPlan(data) {
+  const box = document.getElementById('action-plan');
+  if (!box) return;
+  const ctx = planContext(data);
+  const severity = driverSeverities(ctx);
+  const scoreByYear = new Map(data.current_crop_viability.map(v => [v.year, v.score]));
+
+  const cards = MILESTONES.map(milestone => {
+    const score = scoreByYear.get(milestone.year);
+    const status = isNum(score) ? viabilityStatus(score) : null;
+    const items = planFor(milestone, ctx, severity, score);
+    const chip = status
+      ? `<span class="chip chip--${status.cls}">${percentOf(score)} · ${status.label}</span>`
+      : '';
+    return `
+      <article class="milestone milestone--${status ? status.cls : 'none'}">
+        <header class="milestone-head">
+          <span class="milestone-year">${milestone.year}</span>
+          <span class="milestone-tag">${milestone.tag}</span>
+          ${chip}
+        </header>
+        <h4>Prevention &amp; Action</h4>
+        <ol class="actions">${items.map(i => `<li>${escapeHtml(i.act)}</li>`).join('')}</ol>
+        <h4>Field Benefits</h4>
+        <ol class="benefits">${items.map(i => `<li>${escapeHtml(i.gain)}</li>`).join('')}</ol>
+      </article>`;
   });
+
+  box.innerHTML = `
+    <h3>How to Help Today's Crops Last Longer</h3>
+    <p class="action-plan-intro">
+      For <b>${escapeHtml(ctx.name)}</b> at ${escapeHtml(data.field.name)}. General farming steps matched to this
+      field's climate trend, not a yield forecast. Check them with a local agricultural adviser.
+    </p>
+    <div class="milestones">${cards.join('')}</div>`;
 }
 
 // ---------- Caveats ----------
@@ -1791,16 +2172,16 @@ function prepareForPrint(snapshot) {
     section.classList.add('is-visible');
     renderScreen(section.id);
   });
-  // Chart.js doesn't resize for print by itself; give the radar its paper size
-  // (matches .radar-panel's print width minus padding; square, like on screen).
-  if (state.radar) state.radar.resize(528, 528);
+  // Chart.js doesn't resize for print by itself; give the comparison chart its paper size
+  // (matches .compare-panel's print width minus padding).
+  if (state.compare) state.compare.resize(528, 380);
 }
 
 function restoreAfterPrint() {
   if (!printState.prepared) return;
   printState.prepared = false;
   document.body.classList.remove('printing');
-  if (state.radar) state.radar.resize(); // back to fitting its box
+  if (state.compare) state.compare.resize(); // back to fitting its box
   document.querySelectorAll('.optional').forEach(section => {
     const open = printState.wasOpen.includes(section.id);
     if (!open) {
