@@ -1808,35 +1808,177 @@ body.story-active {
   to   { transform: translateX(7%)  skewX(14deg)  scaleY(1.15); opacity: 0.95; }
 }
 
-/* ---------- Compare climates: radar next to the table ---------- */
+/* ---------- Compare climates: chart above, table below ---------- */
 
 .compare-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 430px) 1fr;
+  grid-template-columns: 1fr;
   gap: 1.5rem;
   align-items: start;
 }
 
-@media (max-width: 920px) {
-  .compare-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.radar-panel {
+.compare-panel {
   margin: 0;
-  padding: 1rem;
+  padding: 1rem 1.25rem;
+  max-width: 820px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
-.radar-panel figcaption {
+.compare-canvas {
+  position: relative;
+  height: 440px;
+}
+
+.compare-panel figcaption {
   margin-top: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   line-height: 1.4;
   color: #13315c;
+}
+
+/* Status tags: words and an arrow carry the meaning, colour only backs them up. */
+.chip {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.chip--pro, .chip--ok { background: #dcf5e5; color: #14663a; border-color: #2e9e5b; }
+.chip--con, .chip--risk { background: #fde1e4; color: #9b1424; border-color: #d62839; }
+.chip--mixed, .chip--watch { background: #fdecc8; color: #7a4a00; border-color: #d97706; }
+.chip--steady { background: #e8eef7; color: #2a3f5f; border-color: #8fa3bf; }
+
+/* The Pros & Cons column is text, so it reads left to right and sits at the top of its row. */
+#signature-table td {
+  vertical-align: top;
+}
+
+#signature-table th.proscons,
+#signature-table td.proscons {
+  min-width: 300px;
+  max-width: 380px;
+  text-align: left;
+}
+
+.pc-line {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.pc-pro b { color: #14663a; }
+.pc-con b { color: #9b1424; }
+
+@media (max-width: 920px) {
+  #signature-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* ---------- Viability: one-line summary and the action plan below the chart ---------- */
+
+.viability-summary {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #4a2511;
+}
+
+.action-plan {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.4rem;
+  border-radius: 14px;
+  background: rgba(255, 251, 242, 0.95);
+  box-shadow: 0 8px 24px rgba(90, 45, 10, 0.25);
+  color: #3b1d0c;
+}
+
+.action-plan h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  color: #4a2511;
+}
+
+.action-plan-intro {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.milestone {
+  padding: 1rem 1.1rem;
+  border-top: 6px solid #8fa3bf;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.milestone--ok { border-top-color: #2e9e5b; }
+.milestone--watch { border-top-color: #d97706; }
+.milestone--risk { border-top-color: #d62839; }
+
+.milestone-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.milestone-year {
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.milestone-tag {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #6b4a35;
+}
+
+.milestone h4 {
+  margin: 0.8rem 0 0.25rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7a4a00;
+}
+
+.milestone ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.milestone li + li {
+  margin-top: 0.4rem;
+}
+
+.milestone .benefits {
+  color: #14663a;
+}
+
+@media print {
+  .milestone {
+    border: 1px solid #999 !important;
+    break-inside: avoid;
+  }
 }
 
 /* ---------- A screen whose data is missing from this result ---------- */
@@ -1962,7 +2104,9 @@ body.story-active {
   }
 
   #signature-table,
-  .radar-panel,
+  .compare-panel,
+  .action-plan,
+  .milestone,
   .crop-card {
     background: #fff !important;
     backdrop-filter: none !important;
@@ -1973,21 +2117,20 @@ body.story-active {
     border-bottom: 1px solid #bbb !important;
   }
 
-  /* Radar above the table, large enough for its labels */
+  /* Chart above the table */
   .compare-layout {
     display: block;
   }
 
-  .radar-panel {
+  .compare-panel {
     width: 560px;
     max-width: 100%;
     margin: 0 auto 1rem;
     break-inside: avoid;
   }
 
-  #radar-chart {
-    width: 100% !important;
-    height: auto !important;
+  .compare-canvas {
+    height: 380px !important;
   }
 
   .crop-card {

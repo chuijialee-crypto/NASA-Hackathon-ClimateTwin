@@ -6,3 +6,5 @@ __pycache__/
 
 # Written by the file-read hook (.kiro/hooks/file-read.json)
 .kiro/read-log.txt
+# Local secrets: never commit
+.env
