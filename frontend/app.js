@@ -1515,7 +1515,7 @@ const ACTIONS = {
       gain: (f.heat_days > n.heat_days + 0.5
         ? `Eases heat stress as days above 35 °C go from ${whole(n.heat_days)} to ${whole(f.heat_days)} a year`
         : `Eases heat stress as average temperature trends from ${fmt(n.mean_temp, 1)} to ${fmt(f.mean_temp, 1)} °C`) +
-        (crop ? `; ${name} tolerates up to ${crop.max_heat_days}.` : '.')
+        (crop ? `; ${name} tolerates up to ${crop.max_heat_days} days above 35 °C a year.` : '.')
     }),
     long: ({ name }) => ({
       act: 'Choose heat-tolerant varieties and adjust planting dates as the warm trend continues.',
