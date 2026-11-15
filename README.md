@@ -190,7 +190,7 @@ The weights, the geographic penalty and the crop-scoring widths are modelling ch
 
 | Source | Use |
 |---|---|
-| [NASA POWER Agroclimatology (AG) API](https://power.larc.nasa.gov/api/temporal/daily/point](https://power.larc.nasa.gov/data-access-viewer/) | The only climate data source. Daily `T2M`, `T2M_MAX`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN` for the field (1984-2024) and for every global grid point (2015-2024). Community `AG`. No key required. |
+| [NASA POWER Agroclimatology (AG) API](https://power.larc.nasa.gov/api/temporal/daily/point)| The only climate data source. Daily `T2M`, `T2M_MAX`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN` for the field (1984-2024) and for every global grid point (2015-2024). Community `AG`. No key required. |
 | [FAO ECOCROP](https://ecocrop.apps.fao.org/ecocrop/srv/en/home) | Reference for the crop climate tolerance ranges in `data/crops.json`. Each crop entry carries its source URL. |
 
 ### Third-party libraries and services
