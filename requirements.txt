@@ -1,0 +1,17 @@
+# Climate Twin: Python dependencies (Python 3.11+)
+# Install with:  pip install -r requirements.txt
+# Pinned to the versions the 69 tests were run against.
+
+# API
+fastapi==0.162.7
+uvicorn==0.54.0
+
+# Engine
+pandas==3.1.1
+numpy==2.5.4
+scipy==1.18.1
+httpx==0.28.1
+global-land-mask==1.0.0
+
+# Tests (also needs httpx, listed above, for FastAPI's TestClient)
+pytest==9.2.0

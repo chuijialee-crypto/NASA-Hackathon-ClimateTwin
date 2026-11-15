@@ -1,225 +1,216 @@
 # 🌍 Climate Twin
 
-> *Every team here will tell a farmer what to plant next year. We are telling them where their farm is going — and who already farms there.*
+> *Every team here will tell a farmer what to plant next year. We are telling them where their farm is going, and who already farms there.*
 
-**NASA Space Apps Challenge KL 2026** · Team 103 · Challenge: *Field Shift — Adapting Farms with NASA Data*
-
----
-
-## What Is Climate Twin?
-
-Every farmer adapting to a changing climate is asked to guess at a future nobody can predict. We think there’s a better question.
+**NASA Space Apps Challenge KL 2026** · Team 103 · Challenge: *Field Shift: Adapting Farms with NASA Data*
 
 Climate Twin answers one question a farmer actually asks:
 
 > **What is happening to my land, and who already farms land like it?**
 
-Somewhere on Earth, there is already a place with the climate your field will have in 2045 — and people farm it today. Climate Twin finds that place using 40 years of NASA Earth observation data, shows you what grows there, and maps a path from the crop that’s failing to the one that won’t.
-
-We don't predict the future. We find the place on Earth whose climate **today** matches what your field will have in **2045** — and show what is already grown there.
-
-A farmer in Kedah, Malaysia picks their field. We find their climate twin in Central Thailand. That place exists, people farm it today, and we show exactly what they grow. That's the idea.
+We do not predict the future. We find the place on Earth whose climate **today** matches what a farmer's field is **trending toward in 2045**, and show what is already grown there. For the Kedah padi demo field, that place is **Bicol, Philippines** (2,739 km away, match score 0.80).
 
 ---
 
-## The User Flow
+## Quick Start (2 minutes)
 
-```
-1. Farmer picks a field on the map
-         ↓
-2. We pull 40 years of daily NASA POWER climate data for that point
-         ↓
-3. We compute a climate signature (8 agronomic numbers)
-   and fit a linear trend to 2045
-         ↓
-4. We search a global grid for the closest present-day match
-         ↓
-5. We draw the arc: your field → its Climate Twin
-   "This is your field in 2045. People farm it today."
-         ↓
-6. We show the backtest: your 1995 twin vs today
-   Your farm has already moved 610 km in climate terms.
-   That's the proof our method describes something real.
+Requires Python 3.11+ and a web browser. No API keys, no build step.
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Start the backend (terminal 1), http://localhost:8000
+uvicorn api.main:app --reload
+
+# 3. Start the frontend (terminal 2), http://localhost:3000
+python -m http.server 3000 --directory frontend
 ```
 
-The wow moment is **step 5**. Everything else exists to make step 5 believable.
+Open **http://localhost:3000** and click **"Use the demo field (Kedah, Malaysia)"**, or click any point on the map.
+
+Check the API directly:
+
+```bash
+curl "http://localhost:8000/twin?lat=6.12&lon=100.37"
+```
+
+Run the tests (69 tests):
+
+```bash
+python -m pytest
+```
+
+### Automatic offline fallback
+
+If the backend is not running, or NASA POWER is unreachable, the frontend does not break. It switches to **real, precomputed engine output** and says so in the status line:
+
+| Situation | What is shown |
+|---|---|
+| The chosen point is one of the 10 Malaysian presets (within about 1 km) | That preset's saved engine result, from `frontend/malaysia_states.json` |
+| Any other point | The Kedah demo result, from `frontend/demo_field.json` |
+
+Both files are copies of `data/malaysia_states.json` and `data/demo_field.json`. The frontend tries `../data/` first and then the copy next to the page. They are produced by running the same `climate_twin()` engine (`python -m engine.export_presets`). Only the map background tiles need internet.
 
 ---
 
-## The Climate Signature
-
-Eight numbers describe a field's climate well enough to match it against anywhere on Earth. All eight come from [NASA POWER](https://power.larc.nasa.gov/) — no login required.
-
-| # | Value | NASA Variable | Why a Farmer Cares |
-|---|-------|--------------|-------------------|
-| 1 | Mean annual temperature (°C) | `T2M` | Sets which crops are possible at all |
-| 2 | Growing degree days, base 10°C | `T2M` daily sum | How fast a crop reaches maturity |
-| 3 | Total annual rainfall (mm) | `PRECTOTCORR` | Whether irrigation is optional |
-| 4 | Wet-season concentration | Monthly rain share | Monsoon shape — same total, very different farming |
-| 5 | Longest dry spell (days) | Consecutive days < 1 mm | The number that kills a crop |
-| 6 | Heat-stress days per year | Days `T2M_MAX` > 35°C | Flowering failure in rice, maize, vegetables |
-| 7 | Mean solar radiation | `ALLSKY_SFC_SW_DWN` | Photosynthesis ceiling |
-| 8 | Coldest-month mean temp (°C) | `T2M` monthly min | Hard limit on tropical perennials |
-
-**Matching method:** Standardise all 8 values across a global grid (z-score), then find the grid cell with the smallest weighted Euclidean distance to the field's projected 2045 signature.
-
-**Trend fit:** Ordinary least-squares linear regression on 40 years of data, extrapolated 20 years. We say so on screen — a linear trend is a simple assumption, not a climate model. We show the scatter plot so a judge can see exactly what we're assuming.
-
----
-
-## NASA Data
-
-| Source | What We Use It For |
-|--------|-------------------|
-| [NASA POWER API](https://power.larc.nasa.gov/api/temporal/daily/point) | 40 years of daily temperature, rainfall, solar — for any lat/lon on Earth. No API key needed. |
-
-**Parameters:** `T2M`, `T2M_MAX`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN` · Community: `AG` (Agroclimatology)
-
-> ⚠️ NASA POWER is gridded at ~50 km resolution — it is not a measurement of a specific field. We say this on screen.
-
----
-
-## Project Structure
+## How Climate Twin Works
 
 ```
-climate-twin/
-│
-├── engine/
-│   ├── power_client.py      # NASA POWER fetcher + disk cache
-│   ├── signature.py         # Compute the 8 signature values (pure functions)
-│   ├── grid.py              # Build and query global_grid.json
-│   └── twin.py              # Trend fit, 2045 extrapolation, nearest-neighbour lookup
-│
-├── api/
-│   └── main.py              # FastAPI app — one endpoint, CORS enabled
-│
-├── frontend/
-│   ├── index.html
-│   ├── app.js               # Map, arc animation, charts
-│   └── style.css
-│
-├── data/
-│   ├── global_grid.json     # Pre-computed grid of present-day climate signatures
-│   ├── crops.json           # Crop knowledge base (15–20 crops, each with source)
-│   ├── weights.json         # Signature matching weights (tunable)
-│   ├── contract.json        # Agreed API response shape (fake values for dev)
-│   └── demo_field.json      # Frozen real output — offline fallback for demo day
-│
-└── README.md
+1. Pick a field on the map
+        ↓
+2. Pull 40 years (1984-2024) of daily NASA POWER data for that point
+        ↓
+3. Compute an 8-number climate signature for every year,
+   fit a straight line to each, and read the line at 2045
+        ↓
+4. Compare that 2045 signature with a pre-computed 760-point global land grid
+   of present-day signatures; the closest match is the Climate Twin
+        ↓
+5. Draw the arc: your field → its twin, and show what grows there
+        ↓
+6. Backtest: find the field's twin for 1990-2000 and for 2015-2024.
+   The distance between them (drift_km) shows the shift has already happened.
 ```
+
+### The 8-value climate signature
+
+All eight values are arithmetic on four NASA POWER daily variables.
+
+| # | Value | NASA variable | Definition |
+|---|-------|---------------|------------|
+| 1 | Mean annual temperature (°C) | `T2M` | Mean of daily values |
+| 2 | Growing degree days | `T2M` | Sum of max(T2M − 10, 0) per year |
+| 3 | Annual rainfall (mm) | `PRECTOTCORR` | Mean daily rain × 365.25 |
+| 4 | Wet-season share | `PRECTOTCORR` | Share of annual rain in the wettest 3 consecutive months |
+| 5 | Longest dry spell (days) | `PRECTOTCORR` | Longest run of days under 1 mm, averaged over years |
+| 6 | Heat-stress days per year | `T2M_MAX` | Days above 35 °C |
+| 7 | Mean solar radiation (MJ/m²/day) | `ALLSKY_SFC_SW_DWN` | Mean of daily values |
+| 8 | Coldest-month mean temperature (°C) | `T2M` | Lowest of the 12 calendar-month means |
+
+Days marked `-999` by POWER are treated as missing and never averaged in.
+
+### Matching and the 2045 trend
+
+- **Trend:** ordinary least-squares line (`scipy.stats.linregress`) through each signature value's yearly series, 1984-2024, read at 2045. It is a simple direction-of-change estimate, not a climate model.
+- **Global grid (760 land points):** a 5° global land grid plus a finer 1.5° grid over Southeast Asia (lat −10 to 25, lon 90 to 130). The 5° grid has no land cell on Peninsular Malaysia, so Malaysian fields needed the finer grid. Each point holds the 2015-2024 signature.
+- **Distance:** z-score each value across the grid, then take the weighted Euclidean distance, with weights from `data/weights.json` (temperature and rainfall highest). `match_score = 1 / (1 + distance)`, so higher is better.
+- **Geographic tie-break:** a penalty of 0.0075 per 1,000 km is added when ranking candidates, so two equally good matches resolve to the nearer one.
+- **Backtest:** the 1990-2000 and 2015-2024 twins are searched within 1,000 km of the field. `drift_km` is the Haversine distance between them.
+- **Crops:** a crop is listed if the twin's climate fits its FAO ECOCROP-style limits (`data/crops.json`, 18 crops, each with a source URL). The field's current crop gets a 2025-2045 viability index, an index of climate shift and not a yield forecast.
+
+Every number on screen traces back to arithmetic on NASA POWER data. There is no machine learning.
+
+### Speed
+
+The global grid is pre-computed, so a request only reads the field's own 40-year series from the disk cache and scans 760 points. That takes about 0.1-0.2 s on our development machine for a cached field. A location never seen before needs one live NASA POWER download first.
 
 ---
 
 ## API
 
 ```
-GET /twin?lat={lat}&lon={lon}
+GET /twin?lat={lat}&lon={lon}[&crop={crop name}]
 ```
 
-Returns a JSON object with the field's current signature, projected 2045 signature, the Climate Twin location, the 1995 twin (backtest), recommended crops, and viability curve.
-
-**Demo default:** `GET /twin?lat=6.12&lon=100.37` — a real padi field in Kedah, Malaysia.
-
-**Response shape** (see `data/contract.json` for the full schema):
+CORS is open. `crop` is optional (default: Paddy rice). Errors: `422` for an unknown crop, `502` if NASA POWER fails or returns bad data.
 
 ```json
 {
-  "field":            { "lat": 6.12, "lon": 100.37, "name": "Kedah padi field" },
-  "signature_now":    { "mean_temp": 27.1, "gdd": 6240, "rain_mm": 2410, "..." },
-  "signature_2045":   { "mean_temp": 28.4, "..." },
-  "twin":             { "lat": 14.6, "lon": 100.5, "place": "Central Thailand", "match_score": 0.91 },
-  "twin_1995":        { "place": "Penang mainland", "drift_km": 610 },
-  "crops_there":      [ { "name": "Jasmine rice", "note": "Heat-tolerant, single season" } ],
-  "current_crop_viability": [ { "year": 2025, "score": 0.82 }, { "year": 2045, "score": 0.38 } ],
-  "caveats":          [ "NASA POWER is ~50 km gridded data, not a measurement of this field." ]
+  "field":                  { "lat": 6.12, "lon": 100.37, "name": "Kedah padi field" },
+  "signature_now":          { "mean_temp": "…", "gdd": "…", "rain_mm": "…", "…": "8 values" },
+  "signature_2045":         { "…": "8 values" },
+  "twin":                   { "lat": "…", "lon": "…", "place": "Bicol, Philippines", "distance_km": 2739, "match_score": 0.8, "signature": { "…": "8 values" } },
+  "twin_now":               { "lat": "…", "lon": "…", "place": "…" },
+  "twin_1995":              { "lat": 5.0, "lon": 97.5, "place": "Aceh, Indonesia", "drift_km": 372 },
+  "crops_there":            [ { "name": "…", "note": "…", "source": "…", "match_score": 0.0 } ],
+  "current_crop":           "Paddy rice",
+  "current_crop_viability": [ { "year": 2025, "score": 0.99 }, "…", { "year": 2045, "score": 0.9 } ],
+  "caveats":                [ "…" ]
 }
 ```
 
----
-
-## Setup
-
-### Requirements
-
-- Python 3.11+
-- Node / browser (front-end is static HTML/JS, no build step)
-
-### Install Python dependencies
-
-```bash
-pip install fastapi==0.115.5 uvicorn==0.32.1 pandas==2.2.3 numpy==2.1.3 scipy==1.14.1 httpx==0.27.2
-```
-
-### Build the global grid (run this first — takes ~20–30 min)
-
-```bash
-python engine/grid.py
-```
-
-This fetches 2015–2025 NASA POWER data for ~500 land points at 5° resolution and saves `data/global_grid.json`. All responses are cached to `cache/` — safe to restart if it's interrupted.
-
-### Start the API
-
-```bash
-uvicorn api.main:app --reload
-```
-
-API runs at `http://localhost:8000`. Test it:
-
-```bash
-curl "http://localhost:8000/twin?lat=6.12&lon=100.37"
-```
-
-### Open the front-end
-
-Open `frontend/index.html` in a browser, or serve it locally:
-
-```bash
-python -m http.server 3000 --directory frontend
-```
-
-> **Offline fallback:** if the API is unreachable, the front-end automatically loads `data/demo_field.json`. The demo always works.
+`frontend/contract.json` is the original agreed shape with placeholder values. `data/demo_field.json` is a frozen real response.
 
 ---
 
-## Team
+## Project Structure
 
-| Role | Responsibility |
-|------|---------------|
-| **Role 1** | Python data & climate engine — NASA POWER, signature computation, twin lookup |
-| **Role 2** | Front-end — world map, arc animation, charts |
-| **Role 3** | Agronomy & validity — crop knowledge base, sanity checks, UI copy, caveats |
-| **Role 4** | Story & submission — demo video, project page, rehearsals, submission |
+```
+├── engine/
+│   ├── power_client.py      # NASA POWER fetcher + on-disk cache
+│   ├── signature.py         # The 8 signature values (pure functions)
+│   ├── grid.py              # Builds data/global_grid.json
+│   ├── twin.py              # Trend fit, 2045 extrapolation, twin lookup, crops, viability
+│   └── export_presets.py    # Saves engine output for the 10 Malaysian presets
+├── api/main.py              # FastAPI app, one endpoint, CORS enabled
+├── frontend/                # Static HTML/JS (Leaflet, Chart.js, globe.gl in vendor/)
+│   ├── index.html, app.js, style.css
+│   ├── demo_field.json      # Offline fallback: Kedah demo result
+│   ├── malaysia_states.json # Offline fallback: saved result per preset
+│   └── contract.json        # Agreed response shape (placeholder values)
+├── data/
+│   ├── global_grid.json     # Pre-computed 760-point grid of present-day signatures
+│   ├── crops.json           # 18 crops with climate limits and source URLs
+│   ├── weights.json         # Signature matching weights
+│   ├── demo_field.json, malaysia_states.json, places.json, ui_copy.json
+├── tests/                   # 69 tests (pytest)
+├── docs/TECHNICAL_BRIEF_FOR_MENTOR.md   # Formulas and parameters in detail
+├── .kiro/steering/          # Project guidelines used with Kiro (see disclosure)
+└── requirements.txt
+```
+
+### Rebuilding the grid (optional)
+
+`data/global_grid.json` is the pre-computed grid. If it is missing from your checkout, rebuild it (about 20-30 minutes, 5 parallel requests; every response is cached in `cache/`, so it is safe to stop and restart):
+
+```bash
+python -m engine.grid
+```
 
 ---
 
 ## Caveats
 
-We put these on screen. We're listing them here too.
+These are on screen in the app as well.
 
-- NASA POWER is gridded at ~50 km resolution — it is not a measurement of this specific field.
+- NASA POWER is gridded climate data at roughly 50 km, not a measurement of this specific field.
 - We do not forecast weather, yield, or profit.
 - A linear trend is a simplifying assumption, not a climate projection.
 - Confirm any planting decision with a local agricultural adviser.
 
-Saying this out loud costs nothing and reads as competence.
+The weights, the geographic penalty and the crop-scoring widths are modelling choices made by the team. They are visible in `data/weights.json` and `engine/twin.py`. The crop limits in `data/crops.json` were compiled by the team from FAO ECOCROP-style ranges and have not been independently validated by an agronomist.
 
 ---
 
-## Data Sources
+## Data & Tools Disclosure
 
-- [NASA POWER API](https://power.larc.nasa.gov/) — climate data
-- [FAO ECOCROP](https://ecocrop.review.fao.org/) — crop climate tolerance ranges
-- NASA Space Apps Challenge: [spaceappschallenge.org](https://www.spaceappschallenge.org/)
+### Data
+
+| Source | Use |
+|---|---|
+| [NASA POWER Agroclimatology (AG) API](https://power.larc.nasa.gov/api/temporal/daily/point) | The only climate data source. Daily `T2M`, `T2M_MAX`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN` for the field (1984-2024) and for every global grid point (2015-2024). Community `AG`. No key required. |
+| [FAO ECOCROP](https://ecocrop.review.fao.org/) | Reference for the crop climate tolerance ranges in `data/crops.json`. Each crop entry carries its source URL. |
+
+### Third-party libraries and services
+
+FastAPI, Uvicorn, pandas, NumPy, SciPy, HTTPX and global-land-mask (Python, see `requirements.txt`). Leaflet, Chart.js and globe.gl (front-end, in `frontend/vendor/`). OpenStreetMap map tiles.
+
+### AI-assisted development (Kiro)
+
+This project was built with **Amazon Kiro** (an AI-assisted development tool), disclosed as required by the NASA Space Apps Challenge rules. Kiro was guided by the project's steering files in [`.kiro/steering/`](.kiro/steering/) (architecture, coding standards, NASA data reference, judging criteria, roles and workflow). The team set the scope, reviewed the output, and chose the method. Kiro helped write and test the code and documentation. All climate numbers come from NASA POWER data and the arithmetic in `engine/`, not from an AI model.
 
 ---
 
-## AI Tool Disclosure
+## Team
 
-This project was built with assistance from [Kiro](https://kiro.dev), Amazon's AI-powered coding tool, as permitted and required to be disclosed under NASA Space Apps Challenge rules.
-
----
+| Role | Member | Responsibility |
+|---|---|---|
+| Data & climate engine | Loke Yi Cheng | NASA POWER, signatures, twin lookup, API |
+| Front-end (Team Leader) | Lee Chui Jia | Map, arc, charts, offline fallback |
+| Agronomy & validity | Koh Zhe Xuan | Crop knowledge base, sanity checks, UI copy |
+| Story & submission | Ong Yan Xing | Demo video, project page, integration testing |
 
 ## Licence
 
-MIT — see `LICENSE` for details.
+MIT.
