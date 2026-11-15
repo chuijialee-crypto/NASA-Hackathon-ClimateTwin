@@ -1,8 +1,18 @@
 // Climate Twin front-end.
-// Loads the live API if it's running, otherwise falls back to contract.json.
+// Loads the live API if it's running. If it isn't, it falls back to real,
+// precomputed engine output: data/malaysia_states.json (one result per preset)
+// and data/demo_field.json (the Kedah demo field).
 
 const API_URL = 'http://localhost:8000/twin';
 const API_TIMEOUT_MS = 15000;
+// Each file is tried at these paths in order. '../data/' works when the server
+// root is the project folder. './' works when the server root is the frontend
+// folder (python -m http.server 3000 --directory frontend), using the copy kept there.
+const DEMO_FIELD_PATHS = ['../data/demo_field.json', './demo_field.json'];
+const STATE_PRESETS_PATHS = ['../data/malaysia_states.json', './malaysia_states.json'];
+// A clicked or typed point counts as a preset when it is within this many degrees
+// of the preset's coordinates (0.01 degrees is about 1 km).
+const PRESET_MATCH_TOLERANCE_DEG = 0.01;
 const DEMO_FIELD = { lat: 6.12, lon: 100.37 }; // Kedah padi field
 
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -322,16 +332,61 @@ function animateArc(line, points) {
 
 // ---------- Data ----------
 
-let fallbackPromise = null;
-function loadFallback() {
-  if (!fallbackPromise) {
-    fallbackPromise = fetch('./contract.json').then(r => {
-      if (!r.ok) throw new Error(`contract.json: ${r.status}`);
-      return r.json();
-    });
-    fallbackPromise.catch(() => { fallbackPromise = null; }); // allow retry
+// Returns the JSON from the first path that answers. Throws, naming every
+// path tried, if none do.
+async function fetchJsonFromFirst(paths) {
+  const failures = [];
+  for (const path of paths) {
+    try {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      failures.push(`${path} (${err.message})`);
+    }
   }
-  return fallbackPromise;
+  throw new Error(`could not load any of: ${failures.join(', ')}`);
+}
+// The Kedah demo field: the response of the real engine, frozen by engine.export_presets.
+let demoFieldPromise = null;
+function loadDemoField() {
+  if (!demoFieldPromise) {
+    demoFieldPromise = fetchJsonFromFirst(DEMO_FIELD_PATHS);
+    demoFieldPromise.catch(() => { demoFieldPromise = null; }); // allow retry
+  }
+  return demoFieldPromise;
+}
+// The saved engine result for every preset. Optional: if the file is missing we
+// still have the demo field, so a failure here is logged and gives an empty list.
+let statePresetsPromise = null;
+function loadStatePresets() {
+  if (!statePresetsPromise) {
+    statePresetsPromise = fetchJsonFromFirst(STATE_PRESETS_PATHS)
+      .then(file => (Array.isArray(file?.states) ? file.states : []))
+      .catch(err => {
+        console.warn('malaysia_states.json not loaded; only the demo field is available offline', err);
+        statePresetsPromise = null; // allow retry
+        return [];
+      });
+  }
+  return statePresetsPromise;
+}
+// The saved engine response for the preset at (lat, lon), or null if it is not a preset.
+function findPresetResponse(presets, lat, lon) {
+  const match = presets.find(p =>
+    isNum(p?.lat) && isNum(p?.lon) &&
+    Math.abs(p.lat - lat) <= PRESET_MATCH_TOLERANCE_DEG &&
+    Math.abs(p.lon - lon) <= PRESET_MATCH_TOLERANCE_DEG);
+  return match ? match.response : null;
+}
+// Offline answer for (lat, lon): the saved preset result if the point is a preset,
+// otherwise the Kedah demo field. `source` says which one, so the page can say so.
+async function loadFallback(lat, lon) {
+  const preset = normaliseTwin(findPresetResponse(await loadStatePresets(), lat, lon));
+  if (preset) return { data: preset, source: 'preset' };
+  const demo = normaliseTwin(await loadDemoField());
+  if (!demo) throw new Error('demo_field.json is missing the field or twin location');
+  return { data: demo, source: 'demo' };
 }
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -373,10 +428,9 @@ async function getTwin(lat, lon) {
     if (data) return { data, live: true };
     throw new Error('engine answer is missing the field or twin location');
   } catch (err) {
-    console.warn('API failed, using contract.json fallback', err);
-    const data = normaliseTwin(await loadFallback());
-    if (!data) throw new Error('contract.json is missing the field or twin location');
-    return { data, live: false, invalid };
+    console.warn('API failed, using saved engine data (malaysia_states.json / demo_field.json)', err);
+    const { data, source } = await loadFallback(lat, lon);
+    return { data, live: false, invalid, source };
   } finally {
     clearTimeout(timer);
   }
@@ -444,9 +498,11 @@ async function selectField(lat, lon, { fromClick = false } = {}) {
   state.live = result.live;
 
   if (result.invalid) {
-    setStatus('The engine sent an incomplete answer, so this shows the Kedah demo result instead.', 'error');
+    setStatus('The engine sent an incomplete answer, so this shows saved engine data instead.', 'error');
   } else if (result.live) {
     setStatus('Live result from the Climate Twin engine. Click the map to try another field.');
+  } else if (result.source === 'preset') {
+    setStatus('The engine isn\'t running, so this shows the saved engine result for the preset you chose.', 'warn');
   } else if (fromClick) {
     setStatus(
       'The engine isn\'t running yet, so this shows the Kedah demo result instead of the point you chose.',
@@ -1693,7 +1749,7 @@ function printMeta(result) {
   return `${field.name} (${field.lat.toFixed(2)}, ${field.lon.toFixed(2)}). Climate twin: ${twin.place}. ` +
     (state.live
       ? 'Live result from the Climate Twin engine. '
-      : 'Demo data: the engine was not connected, so this is the example result. ') +
+      : 'Saved result: the engine was not connected, so this is precomputed Climate Twin output. ') +
     `Printed ${new Date().toLocaleString()}.`;
 }
 
