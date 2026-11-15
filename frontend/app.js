@@ -10,6 +10,7 @@ const API_TIMEOUT_MS = 15000;
 // folder (python -m http.server 3000 --directory frontend), using the copy kept there.
 const DEMO_FIELD_PATHS = ['../data/demo_field.json', './demo_field.json'];
 const STATE_PRESETS_PATHS = ['../data/malaysia_states.json', './malaysia_states.json'];
+const UI_COPY_PATHS = ['../data/ui_copy.json', './ui_copy.json'];
 const CROPS_PATHS = ['../data/crops.json', './crops.json'];
 // A clicked or typed point counts as a preset when it is within this many degrees
 // of the preset's coordinates (0.01 degrees is about 1 km).
@@ -181,7 +182,7 @@ async function loadCrops() {
 
 async function loadUiCopy() {
   try {
-    const json = await fetchJsonFromFirst(['../data/ui_copy.json', './ui_copy.json']); // same order as the other data files
+    const json = await fetchJsonFromFirst(UI_COPY_PATHS);
     if (!isObj(json)) throw new Error('ui_copy.json is not an object');
     COPY = json;
   } catch (err) {

@@ -22,6 +22,9 @@ ROOT = Path(__file__).resolve().parent.parent
 APP_JS = ROOT / "frontend" / "app.js"
 DEMO_PATH = ROOT / "data" / "demo_field.json"
 STATES_PATH = ROOT / "data" / "malaysia_states.json"
+# Copies the front end loads when it is served from frontend/ (python -m http.server
+# --directory frontend), where ../data/ is out of reach. Kept identical to data/.
+FRONTEND_COPIES = ("demo_field.json", "malaysia_states.json", "ui_copy.json", "crops.json")
 
 PRESETS_BLOCK = re.compile(r"const MALAYSIA_PRESETS = \[(.*?)\];", re.DOTALL)
 PRESET_ENTRY = re.compile(r"\{\s*name:\s*'([^']+)',\s*lat:\s*(-?[\d.]+),\s*lon:\s*(-?[\d.]+)\s*\}")
@@ -137,6 +140,12 @@ def print_table(results: list[dict]) -> None:
         print(line(row))
 
 
+def sync_frontend_copies() -> None:
+    """Copy the data files the front end needs into frontend/, byte for byte."""
+    for name in FRONTEND_COPIES:
+        (ROOT / "frontend" / name).write_bytes((ROOT / "data" / name).read_bytes())
+
+
 def main() -> None:
     presets = parse_presets(APP_JS.read_text(encoding="utf-8"))
     print(f"{len(presets)} presets read from {APP_JS.name}")
@@ -152,7 +161,8 @@ def main() -> None:
 
     write_json(DEMO_PATH, demo["response"])
     write_json(STATES_PATH, {"source": "frontend/app.js MALAYSIA_PRESETS", "states": results})
-    print(f"Saved {DEMO_PATH.relative_to(ROOT)} and {STATES_PATH.relative_to(ROOT)}\n")
+    sync_frontend_copies()
+    print(f"Saved {DEMO_PATH.relative_to(ROOT)} and {STATES_PATH.relative_to(ROOT)} (+ frontend copies)\n")
     print_table(results)
 
 
