@@ -10,6 +10,8 @@ const API_TIMEOUT_MS = 15000;
 // folder (python -m http.server 3000 --directory frontend), using the copy kept there.
 const DEMO_FIELD_PATHS = ['../data/demo_field.json', './demo_field.json'];
 const STATE_PRESETS_PATHS = ['../data/malaysia_states.json', './malaysia_states.json'];
+const UI_COPY_PATHS = ['../data/ui_copy.json', './ui_copy.json'];
+const CROPS_PATHS = ['../data/crops.json', './crops.json'];
 // A clicked or typed point counts as a preset when it is within this many degrees
 // of the preset's coordinates (0.01 degrees is about 1 km).
 const PRESET_MATCH_TOLERANCE_DEG = 0.01;
@@ -171,9 +173,7 @@ function prettyUnits(text) {
 // Role 3's crop list, used for the header crop rotation (and later the engine).
 async function loadCrops() {
   try {
-    const res = await fetch('../data/crops.json');
-    if (!res.ok) throw new Error(res.status);
-    const list = await res.json();
+    const list = await fetchJsonFromFirst(CROPS_PATHS);
     if (Array.isArray(list)) CROPS = list;
   } catch (err) {
     console.warn('crops.json not loaded; using built-in crop set', err);
@@ -182,9 +182,7 @@ async function loadCrops() {
 
 async function loadUiCopy() {
   try {
-    const res = await fetch('./ui_copy.json');
-    if (!res.ok) throw new Error(res.status);
-    COPY = await res.json();
+    COPY = await fetchJsonFromFirst(UI_COPY_PATHS);
   } catch (err) {
     console.warn('ui_copy.json not loaded; using built-in text', err);
     return;
