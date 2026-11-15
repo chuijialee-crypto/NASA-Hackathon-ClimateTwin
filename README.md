@@ -185,12 +185,13 @@ The weights, the geographic penalty and the crop-scoring widths are modelling ch
 
 ## Data & Tools Disclosure
 
+
 ### Data
 
 | Source | Use |
 |---|---|
 | [NASA POWER Agroclimatology (AG) API](https://power.larc.nasa.gov/api/temporal/daily/point) | The only climate data source. Daily `T2M`, `T2M_MAX`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN` for the field (1984-2024) and for every global grid point (2015-2024). Community `AG`. No key required. |
-| [FAO ECOCROP](https://ecocrop.review.fao.org/) | Reference for the crop climate tolerance ranges in `data/crops.json`. Each crop entry carries its source URL. |
+| [FAO ECOCROP](https://ecocrop.apps.fao.org/ecocrop/srv/en/home) | Reference for the crop climate tolerance ranges in `data/crops.json`. Each crop entry carries its source URL. |
 
 ### Third-party libraries and services
 
@@ -198,7 +199,12 @@ FastAPI, Uvicorn, pandas, NumPy, SciPy, HTTPX and global-land-mask (Python, see 
 
 ### AI-assisted development (Kiro)
 
-This project was built with **Amazon Kiro** (an AI-assisted development tool), disclosed as required by the NASA Space Apps Challenge rules. Kiro was guided by the project's steering files in [`.kiro/steering/`](.kiro/steering/) (architecture, coding standards, NASA data reference, judging criteria, roles and workflow). The team set the scope, reviewed the output, and chose the method. Kiro helped write and test the code and documentation. All climate numbers come from NASA POWER data and the arithmetic in `engine/`, not from an AI model.
+This project was built with **Amazon Kiro** (an AI-assisted development tool), disclosed as required by the [NASA Space Apps Challenge](https://www.spaceappschallenge.org/) rules. Kiro was guided by the project's steering files in [`.kiro/steering/`](.kiro/steering/) (architecture, coding standards, NASA data reference, judging criteria, roles and workflow). The team set the scope, reviewed the output, and chose the method. Kiro helped write and test the code and documentation. All climate numbers come from NASA POWER data and the arithmetic in `engine/`, not from an AI model.
+
+
+
+
+
 
 ---
 
