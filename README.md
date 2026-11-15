@@ -209,7 +209,7 @@ Saying this out loud costs nothing and reads as competence.
 ## Data Sources
 
 - [NASA POWER API](https://power.larc.nasa.gov/) — climate data
-- [FAO ECOCROP](https://ecocrop.review.fao.org/) — crop climate tolerance ranges
+- [FAO ECOCROP](https://ecocrop.apps.fao.org/ecocrop/srv/en/home) — crop climate tolerance ranges
 - NASA Space Apps Challenge: [spaceappschallenge.org](https://www.spaceappschallenge.org/)
 
 ---
